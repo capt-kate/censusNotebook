@@ -93,6 +93,16 @@ function downloadFile(filename, text) {
 }
 
 function makeTemplateRows(template, rowCount = 10) {
+  if (template.starterRows) {
+    return template.starterRows.map((row) => ({ ...row }));
+  }
+
+  return Array.from({ length: rowCount }, () =>
+    Object.fromEntries(template.columns.map((column) => [column.key, ""]))
+  );
+}
+
+function makeBlankTemplateRows(template, rowCount = 5) {
   return Array.from({ length: rowCount }, () =>
     Object.fromEntries(template.columns.map((column) => [column.key, ""]))
   );
@@ -131,6 +141,17 @@ function templateRowToRecord(template, row) {
   };
 }
 
+function getNoteValue(notes, labels) {
+  const parts = String(notes || "").split(";").map((part) => part.trim());
+
+  for (const label of labels) {
+    const match = parts.find((part) => part.toLowerCase().startsWith(`${label.toLowerCase()}:`));
+    if (match) return match.slice(match.indexOf(":") + 1).trim();
+  }
+
+  return "";
+}
+
 function CopyrightFooter() {
   return (
     <footer style={{ marginTop: "24px", padding: "18px", textAlign: "center", color: "#6b7280", fontSize: "14px" }}>
@@ -152,6 +173,30 @@ function CensusTemplatePage({
   inputStyle,
 }) {
   const [rows, setRows] = useState(() => makeTemplateRows(template, 12));
+  const [templateFilter, setTemplateFilter] = useState({
+    lastName: "",
+    firstName: "",
+    location: "",
+  });
+
+  const filteredTemplateRows = rows
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => {
+      const lastName = templateFilter.lastName.trim().toLowerCase();
+      const firstName = templateFilter.firstName.trim().toLowerCase();
+      const location = templateFilter.location.trim().toLowerCase();
+
+      const rowLastName = String(row.surname || row.lastName || row.name || "").toLowerCase();
+      const rowFirstName = String(row.givenName || row.firstName || row.name || "").toLowerCase();
+      const rowLocation = String(row.location || row.city || row.county || row.state || "").toLowerCase();
+
+      if (lastName && !rowLastName.includes(lastName)) return false;
+      if (firstName && !rowFirstName.includes(firstName)) return false;
+      if (location && !rowLocation.includes(location)) return false;
+      return true;
+    });
+
+  const hasTemplateFilter = Object.values(templateFilter).some((value) => value.trim());
 
   function updateCell(rowIndex, columnKey, value) {
     setRows((prev) =>
@@ -160,12 +205,16 @@ function CensusTemplatePage({
   }
 
   function addBlankRows() {
-    setRows((prev) => [...prev, ...makeTemplateRows(template, 5)]);
+    setRows((prev) => [...prev, ...makeBlankTemplateRows(template, 5)]);
   }
 
   function clearRows() {
     const confirmed = window.confirm("Clear all pasted data from this template?");
     if (confirmed) setRows(makeTemplateRows(template, 12));
+  }
+
+  function resetTemplateFilter() {
+    setTemplateFilter({ lastName: "", firstName: "", location: "" });
   }
 
   function handlePaste(event, startRowIndex, startColumnIndex) {
@@ -182,7 +231,7 @@ function CensusTemplatePage({
     setRows((prev) => {
       const next = [...prev];
       const neededRows = startRowIndex + pastedRows.length - next.length;
-      if (neededRows > 0) next.push(...makeTemplateRows(template, neededRows));
+      if (neededRows > 0) next.push(...makeBlankTemplateRows(template, neededRows));
 
       pastedRows.forEach((pastedRow, rowOffset) => {
         const rowIndex = startRowIndex + rowOffset;
@@ -230,6 +279,21 @@ function CensusTemplatePage({
         </header>
 
         <section style={{ ...cardStyle, padding: "24px" }}>
+          {template.note && (
+            <div style={{ background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: "10px", padding: "16px", marginBottom: "18px", color: "#78350f", lineHeight: 1.6, whiteSpace: "pre-line" }}>
+              {template.note}
+              {template.noteLink && (
+                <p style={{ margin: "12px 0 0" }}>
+                  {template.noteLink.prefix}
+                  <a href={template.noteLink.url} target="_blank" rel="noreferrer" style={{ color: "#92400e", fontWeight: "700" }}>
+                    {template.noteLink.label}
+                  </a>
+                  {template.noteLink.suffix}
+                </p>
+              )}
+            </div>
+          )}
+
           <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <h2 style={{ margin: 0 }}>Paste or enter census rows</h2>
@@ -242,6 +306,43 @@ function CensusTemplatePage({
               <button onClick={clearRows} style={lightButtonStyle}>Clear</button>
               <button onClick={importRows} disabled={!activeProject} style={buttonStyle}>Import Filled Rows</button>
             </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(140px, 1fr)) auto", gap: "8px", alignItems: "center", marginTop: "18px" }}>
+            <input
+              value={templateFilter.lastName}
+              onChange={(event) => setTemplateFilter((prev) => ({ ...prev, lastName: event.target.value }))}
+              placeholder="Filter last name"
+              style={inputStyle}
+            />
+            <input
+              value={templateFilter.firstName}
+              onChange={(event) => setTemplateFilter((prev) => ({ ...prev, firstName: event.target.value }))}
+              placeholder="Filter first name"
+              style={inputStyle}
+            />
+            <input
+              value={templateFilter.location}
+              onChange={(event) => setTemplateFilter((prev) => ({ ...prev, location: event.target.value }))}
+              placeholder="Filter location"
+              style={inputStyle}
+            />
+            <button
+              onClick={resetTemplateFilter}
+              disabled={!hasTemplateFilter}
+              aria-label="Reset template filter"
+              title="Reset filter"
+              style={{
+                ...lightButtonStyle,
+                width: "42px",
+                minHeight: "40px",
+                padding: 0,
+                color: hasTemplateFilter ? "#dc2626" : "#9ca3af",
+                cursor: hasTemplateFilter ? "pointer" : "not-allowed",
+              }}
+            >
+              X
+            </button>
           </div>
 
           <div style={{ overflow: "auto", marginTop: "18px", border: "1px solid #e5e7eb", borderRadius: "10px" }}>
@@ -268,7 +369,7 @@ function CensusTemplatePage({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, rowIndex) => (
+                {filteredTemplateRows.map(({ row, index: rowIndex }) => (
                   <tr key={rowIndex}>
                     {template.columns.map((column, columnIndex) => (
                       <td key={column.key} style={{ borderBottom: "1px solid #f3f4f6", borderRight: "1px solid #f3f4f6", padding: 0 }}>
@@ -289,6 +390,13 @@ function CensusTemplatePage({
                     ))}
                   </tr>
                 ))}
+                {filteredTemplateRows.length === 0 && (
+                  <tr>
+                    <td colSpan={template.columns.length} style={{ padding: "18px", textAlign: "center", color: "#6b7280" }}>
+                      No rows match this filter.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -308,6 +416,13 @@ export default function App() {
   const [yearFilter, setYearFilter] = useState("all");
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
+  const [timelineSearch, setTimelineSearch] = useState({
+    firstName: "",
+    lastName: "",
+    birth: "",
+    location: "",
+  });
+  const [timelineHasRun, setTimelineHasRun] = useState(false);
   const [newRecord, setNewRecord] = useState({
     year: "",
     name: "",
@@ -372,6 +487,30 @@ export default function App() {
   const years = useMemo(() => {
     return Array.from(new Set(allRecords.map((r) => r.year).filter(Boolean))).sort();
   }, [allRecords]);
+
+  const personTimelineResults = useMemo(() => {
+    const firstName = timelineSearch.firstName.trim().toLowerCase();
+    const lastName = timelineSearch.lastName.trim().toLowerCase();
+    const birth = timelineSearch.birth.trim().toLowerCase();
+    const location = timelineSearch.location.trim().toLowerCase();
+
+    if (!firstName && !lastName && !birth && !location) return [];
+
+    return allRecords
+      .filter((record) => {
+        const name = String(record.name || "").toLowerCase();
+        const recordLocation = String(record.location || "").toLowerCase();
+        const notes = String(record.notes || "").toLowerCase();
+
+        if (firstName && !name.includes(firstName)) return false;
+        if (lastName && !name.includes(lastName)) return false;
+        if (birth && !notes.includes(birth) && !String(record.year || "").includes(birth)) return false;
+        if (location && !recordLocation.includes(location) && !notes.includes(location)) return false;
+
+        return true;
+      })
+      .sort((a, b) => String(a.year || "").localeCompare(String(b.year || "")));
+  }, [allRecords, timelineSearch]);
 
   const filteredRecords = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -804,6 +943,13 @@ export default function App() {
             <section style={{ ...cardStyle, padding: "28px" }}>
               <h2 style={{ ...sectionTitleStyle, fontSize: "28px" }}>Topics</h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "14px" }}>
+                <a href="#/help/how-it-works" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>How Census Notebook works</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Learn how local storage, projects, searching, and privacy fit together.
+                  </span>
+                </a>
                 <a href="#/help/ocr-import" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
                   <strong>OCR census data for import</strong>
                   <br />
@@ -828,6 +974,257 @@ export default function App() {
               </div>
             </section>
           </main>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/analysis/person-timeline") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Analysis
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Person Timeline</h1>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Census Notebook
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Follow one individual across time</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Person Timeline will gather every census entry for one person and line those records up
+              chronologically so changes are easier to see.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Search for a person</h3>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setTimelineHasRun(true);
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: "10px" }}>
+                  <input
+                    value={timelineSearch.firstName}
+                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, firstName: event.target.value }))}
+                    placeholder="First name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={timelineSearch.lastName}
+                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, lastName: event.target.value }))}
+                    placeholder="Last name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={timelineSearch.birth}
+                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, birth: event.target.value }))}
+                    placeholder="Birth year or date"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={timelineSearch.location}
+                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, location: event.target.value }))}
+                    placeholder="Location"
+                    style={inputStyle}
+                  />
+                </div>
+                <button type="submit" style={{ ...buttonStyle, marginTop: "12px" }}>Analyze</button>
+              </form>
+            </section>
+
+            {timelineHasRun && (
+              <section style={helpSectionStyle}>
+                <h3>Results</h3>
+                {personTimelineResults.length > 0 ? (
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                      <thead>
+                        <tr style={{ background: "#f3f4f6" }}>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Age</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Household members</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {personTimelineResults.map((record) => (
+                          <tr key={`${record.projectId}-${record.id}`}>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Age"]) || "N/A"}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.location || "N/A"}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.household || "N/A"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p style={{ color: "#4b5563" }}>No matching records found.</p>
+                )}
+              </section>
+            )}
+
+            <section style={helpSectionStyle}>
+              <h3>What it will show</h3>
+              <ul>
+                <li>Every census entry for a person.</li>
+                <li>A link from each result to the full household record.</li>
+                <li>Key fields side-by-side: age, location, occupation, and household members.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>What it reveals</h3>
+              <ul>
+                <li>Migration patterns.</li>
+                <li>Age inconsistencies.</li>
+                <li>Name variations.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Planned enhancement</h3>
+              <p>
+                Census Notebook can flag timeline gaps, such as <strong>Missing 1870 census</strong>,
+                when expected census years are not represented for a person.
+              </p>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/how-it-works") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>How Census Notebook Works</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>A private workspace for census research</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Census Notebook is a simple, private workspace designed to help you organize and explore
+              your census records without needing a complex setup or database server.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Ways to use it</h3>
+              <ul>
+                <li>Run it directly in your web browser, with no installation required.</li>
+                <li>Or download it as a standalone desktop app for Windows or Mac.</li>
+              </ul>
+              <p>
+                Even though it can run in a browser, your data is not stored in the cloud unless you
+                choose to export it yourself.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Your data stays with you</h3>
+              <p>Census Notebook stores all your information locally on your device.</p>
+              <ul>
+                <li>Nothing is automatically uploaded to a server.</li>
+                <li>Your research is not shared or tracked.</li>
+                <li>You remain in full control of your data.</li>
+              </ul>
+              <p>This makes it ideal for genealogists who value privacy or want to work offline.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Entering census records</h3>
+              <p>Getting started is straightforward:</p>
+              <ul>
+                <li>Choose a census year, such as 1850, 1880, or 1940.</li>
+                <li>Enter details from the record, including names, ages, locations, household members, and notes.</li>
+                <li>Add as many records as you want, across any number of years.</li>
+              </ul>
+              <p>Think of it as building your own structured census archive, one entry at a time.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Organizing your research</h3>
+              <p>As your collection grows, Census Notebook helps keep everything manageable.</p>
+              <ul>
+                <li>Records are grouped by year.</li>
+                <li>You can create multiple projects for different family lines or research goals.</li>
+                <li>Each project keeps its data separate but fully searchable.</li>
+              </ul>
+              <p>This makes it easy to switch between research threads without losing context.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Searching your records</h3>
+              <p>Instead of digging through files, you can quickly search across your data.</p>
+              <ul>
+                <li>Search by a person's name.</li>
+                <li>Search by location.</li>
+                <li>Search across all years and projects.</li>
+              </ul>
+              <p>
+                This is especially helpful when tracking someone who moves between counties or states
+                over time.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Finding patterns and missing pieces</h3>
+              <p>One of the most valuable features is the ability to analyze your records.</p>
+              <ul>
+                <li>Spot missing census years in a person's timeline.</li>
+                <li>Identify inconsistencies in ages, spellings, and locations.</li>
+                <li>Discover connections between households or families.</li>
+              </ul>
+              <p>These insights can reveal clues that are easy to miss when working manually.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Optional sharing</h3>
+              <p>
+                By default, your data is completely private. Optional sharing features can give you
+                flexibility when you want it.
+              </p>
+              <ul>
+                <li>Export to CSV or JSON to share with another researcher.</li>
+                <li>Import data from spreadsheets or shared files.</li>
+                <li>Create a read-only copy for collaboration.</li>
+              </ul>
+              <p>
+                This approach keeps your data private by default while still allowing controlled sharing.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Why use Census Notebook?</h3>
+              <p>Census Notebook is designed around how genealogists actually work.</p>
+              <ul>
+                <li>Private, local-first data storage.</li>
+                <li>Flexible access in a browser or desktop app.</li>
+                <li>Tools to help you see patterns, not just store records.</li>
+              </ul>
+              <p>Census Notebook gives you a comprehensive way to use your census records.</p>
+            </section>
+          </article>
           <CopyrightFooter />
         </div>
       </div>
@@ -1068,13 +1465,13 @@ export default function App() {
             </section>
 
             <section style={cardStyle}>
-              <h2 style={sectionTitleStyle}>Analysis Ideas</h2>
-              <ul style={{ color: "#4b5563", lineHeight: 1.7, paddingLeft: "20px" }}>
-                <li>Missing census years for a person</li>
-                <li>Name spelling variations</li>
-                <li>Unexpected location changes</li>
-                <li>Age conflicts between records</li>
-              </ul>
+              <h2 style={sectionTitleStyle}>Analysis</h2>
+              <a
+                href="#/analysis/person-timeline"
+                style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
+              >
+                Person Timeline
+              </a>
             </section>
           </aside>
 
