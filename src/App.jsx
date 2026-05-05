@@ -8,6 +8,10 @@ import {
 
 const STORAGE_KEY = "census-notebook-v1";
 const CUSTOM_TEMPLATES_KEY = "census-notebook-custom-templates-v1";
+const INDEXED_DB_NAME = "census-notebook-local-data";
+const INDEXED_DB_STORE = "app-state";
+const INDEXED_DB_DATA_KEY = "projects";
+const API_ENABLED = import.meta.env.VITE_ENABLE_API === "true";
 
 const starterData = {
   activeProjectId: "project-1",
@@ -55,6 +59,83 @@ function loadData() {
   }
 }
 
+function openLocalDatabase() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) {
+      reject(new Error("IndexedDB is not available."));
+      return;
+    }
+
+    const request = indexedDB.open(INDEXED_DB_NAME, 1);
+
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(INDEXED_DB_STORE)) {
+        database.createObjectStore(INDEXED_DB_STORE);
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function readLocalDatabaseData() {
+  return new Promise((resolve, reject) => {
+    openLocalDatabase()
+      .then((database) => {
+        const transaction = database.transaction(INDEXED_DB_STORE, "readonly");
+        const store = transaction.objectStore(INDEXED_DB_STORE);
+        const request = store.get(INDEXED_DB_DATA_KEY);
+
+        request.onsuccess = () => {
+          database.close();
+          resolve(request.result || null);
+        };
+        request.onerror = () => {
+          database.close();
+          reject(request.error);
+        };
+      })
+      .catch(reject);
+  });
+}
+
+function writeLocalDatabaseData(data) {
+  return new Promise((resolve, reject) => {
+    openLocalDatabase()
+      .then((database) => {
+        const transaction = database.transaction(INDEXED_DB_STORE, "readwrite");
+        const store = transaction.objectStore(INDEXED_DB_STORE);
+        store.put(data, INDEXED_DB_DATA_KEY);
+
+        transaction.oncomplete = () => {
+          database.close();
+          resolve();
+        };
+        transaction.onerror = () => {
+          database.close();
+          reject(transaction.error);
+        };
+      })
+      .catch(reject);
+  });
+}
+
+async function loadStoredData() {
+  try {
+    const indexedData = await readLocalDatabaseData();
+    if (indexedData) return indexedData;
+
+    const localStorageData = loadData();
+    await writeLocalDatabaseData(localStorageData);
+    localStorage.removeItem(STORAGE_KEY);
+    return localStorageData;
+  } catch {
+    return loadData();
+  }
+}
+
 function loadCustomTemplates() {
   try {
     const raw = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
@@ -91,6 +172,23 @@ function parseColumnLabels(text) {
     .split(/\r?\n|,/)
     .map((label) => label.trim())
     .filter(Boolean);
+}
+
+function sanitizeFilePart(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function getFileExtension(filename) {
+  const match = String(filename || "").match(/\.([a-z0-9]+)$/i);
+  return match ? `.${match[1].toLowerCase()}` : "";
+}
+
+function getHashSearchParams(hash) {
+  const queryStart = hash.indexOf("?");
+  return new URLSearchParams(queryStart >= 0 ? hash.slice(queryStart) : "");
 }
 
 function normalizeProject(project) {
@@ -191,10 +289,170 @@ function getNoteValue(notes, labels) {
   return "";
 }
 
+function getRecordDetail(record, labels) {
+  return getNoteValue(`${record.notes || ""}; ${record.household || ""}`, labels);
+}
+
+function getRecordDwellingNumber(record) {
+  return getRecordDetail(record, [
+    "Dwelling Number",
+    "Dwelling #",
+    "Number of Dwelling in Order of Visitation",
+    "Dwelling in Order of Visitation",
+  ]);
+}
+
+function getRecordFamilyNumber(record) {
+  return getRecordDetail(record, ["Family", "Family Number", "Family #"]);
+}
+
+function getRecordPageNumber(record) {
+  return getRecordDetail(record, ["Page", "Page Number", "Page #"]);
+}
+
+function getRecordLineNumber(record) {
+  return getRecordDetail(record, ["Line", "Line Number", "Line #"]);
+}
+
+function getRecordSurname(record) {
+  const detailSurname = getRecordDetail(record, ["Surname", "Last Name"]);
+  if (detailSurname) return detailSurname;
+
+  const nameParts = String(record.name || "").trim().split(/\s+/).filter(Boolean);
+  return nameParts.at(-1) || "";
+}
+
+function getRecordGivenName(record) {
+  const detailGivenName = getRecordDetail(record, ["Given Name", "First Name"]);
+  if (detailGivenName) return detailGivenName;
+
+  const name = String(record.name || "").trim();
+  const surname = getRecordSurname(record);
+  if (surname && name.toLowerCase().endsWith(surname.toLowerCase())) {
+    return name.slice(0, -surname.length).trim();
+  }
+
+  return name;
+}
+
+function normalizeMatchText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function getRecordMatchProfile(record) {
+  return {
+    year: normalizeMatchText(record.year),
+    name: normalizeMatchText(record.name),
+    givenName: normalizeMatchText(getRecordGivenName(record)),
+    surname: normalizeMatchText(getRecordSurname(record)),
+    location: normalizeMatchText(record.location),
+    page: normalizeMatchText(getRecordPageNumber(record)),
+    line: normalizeMatchText(getRecordLineNumber(record)),
+    dwelling: normalizeMatchText(getRecordDwellingNumber(record)),
+    family: normalizeMatchText(getRecordFamilyNumber(record)),
+    age: normalizeMatchText(getNoteValue(record.notes, ["Age"])),
+    birth: normalizeMatchText(getNoteValue(record.notes, ["Birth Year", "Birth", "Estimated Birth Year"])),
+  };
+}
+
+function getDuplicateConfidence(leftRecord, rightRecord) {
+  const left = getRecordMatchProfile(leftRecord);
+  const right = getRecordMatchProfile(rightRecord);
+  if (!left.name || !right.name) return "";
+
+  const sameYear = left.year && left.year === right.year;
+  const sameName = left.name === right.name;
+  const sameLocation = left.location && left.location === right.location;
+  const samePage = left.page && left.page === right.page;
+  const sameLine = left.line && left.line === right.line;
+  const sameDwelling = left.dwelling && left.dwelling === right.dwelling;
+  const sameFamily = left.family && left.family === right.family;
+  const sameSurname = left.surname && left.surname === right.surname;
+  const sameGivenName = left.givenName && left.givenName === right.givenName;
+  const similarName =
+    sameName ||
+    (sameSurname && sameGivenName) ||
+    (sameSurname && left.givenName && right.givenName && left.givenName[0] === right.givenName[0]);
+  const sameAgeOrBirth = (left.age && left.age === right.age) || (left.birth && left.birth === right.birth);
+
+  if (
+    sameYear &&
+    sameName &&
+    sameLocation &&
+    ((samePage && sameLine) || sameDwelling || sameFamily)
+  ) {
+    return "Exact";
+  }
+
+  if (sameYear && similarName && sameLocation && (samePage || sameDwelling || sameFamily || sameAgeOrBirth)) {
+    return "Likely";
+  }
+
+  if (similarName && (sameYear || sameLocation || sameAgeOrBirth)) {
+    return "Possible";
+  }
+
+  return "";
+}
+
+function getRecordDwellingOrFamilyKey(record) {
+  const dwellingNumber = getRecordDwellingNumber(record);
+  const familyNumber = getRecordFamilyNumber(record);
+  if (dwellingNumber) return `dwelling-${dwellingNumber}`;
+  if (familyNumber) return `family-${familyNumber}`;
+  return `record-${record.id}`;
+}
+
+function compareRecordValues(leftValue, rightValue, direction = "asc") {
+  const modifier = direction === "desc" ? -1 : 1;
+  const left = String(leftValue || "").trim();
+  const right = String(rightValue || "").trim();
+
+  if (!left && right) return 1;
+  if (left && !right) return -1;
+
+  return left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: "base",
+  }) * modifier;
+}
+
+function getRecordRelationship(record) {
+  return getRecordDetail(record, [
+    "Relationship",
+    "Relation to Head",
+    "Relation to Head of House",
+    "Relation to Head of Household",
+  ]);
+}
+
+function isHeadOfHousehold(record) {
+  const relationship = getRecordRelationship(record).trim().toLowerCase();
+  return relationship === "head" || relationship === "self" || relationship.includes("head");
+}
+
+function getRecordHouseholdKey(record) {
+  return [
+    record.projectId,
+    record.year,
+    String(record.location || "").trim().toLowerCase(),
+    getRecordDwellingOrFamilyKey(record) || record.household || record.id,
+  ].join("|");
+}
+
 function CopyrightFooter() {
   return (
     <footer style={{ marginTop: "24px", padding: "18px", textAlign: "center", color: "#6b7280", fontSize: "14px" }}>
-      Copyright {new Date().getFullYear()} Kate Montressor. All rights reserved.
+      Copyright {new Date().getFullYear()}{" "}
+      <a href="mailto:cousin.kate@olddeadrelatives.com" style={{ color: "inherit", fontWeight: "700" }}>
+        Kate Montressor
+      </a>
+      . All rights reserved.
     </footer>
   );
 }
@@ -214,44 +472,8 @@ function CensusTemplatePage({
 }) {
   const [rows, setRows] = useState(() => makeTemplateRows(template, 12));
   const [pastedTemplateText, setPastedTemplateText] = useState("");
-  const [attachedFiles, setAttachedFiles] = useState([]);
-  const attachedFilesRef = useRef([]);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(template.label);
-  const [templateFilter, setTemplateFilter] = useState({
-    lastName: "",
-    firstName: "",
-    location: "",
-  });
-
-  const filteredTemplateRows = rows
-    .map((row, index) => ({ row, index }))
-    .filter(({ row }) => {
-      const lastName = templateFilter.lastName.trim().toLowerCase();
-      const firstName = templateFilter.firstName.trim().toLowerCase();
-      const location = templateFilter.location.trim().toLowerCase();
-
-      const rowLastName = String(row.surname || row.lastName || row.name || "").toLowerCase();
-      const rowFirstName = String(row.givenName || row.firstName || row.name || "").toLowerCase();
-      const rowLocation = String(row.location || row.city || row.county || row.state || "").toLowerCase();
-
-      if (lastName && !rowLastName.includes(lastName)) return false;
-      if (firstName && !rowFirstName.includes(firstName)) return false;
-      if (location && !rowLocation.includes(location)) return false;
-      return true;
-    });
-
-  const hasTemplateFilter = Object.values(templateFilter).some((value) => value.trim());
-
-  useEffect(() => {
-    attachedFilesRef.current = attachedFiles;
-  }, [attachedFiles]);
-
-  useEffect(() => {
-    return () => {
-      attachedFilesRef.current.forEach((file) => URL.revokeObjectURL(file.url));
-    };
-  }, []);
 
   function updateCell(rowIndex, columnKey, value) {
     setRows((prev) =>
@@ -266,10 +488,6 @@ function CensusTemplatePage({
   function clearRows() {
     const confirmed = window.confirm("Clear all pasted data from this template?");
     if (confirmed) setRows(makeTemplateRows(template, 12));
-  }
-
-  function resetTemplateFilter() {
-    setTemplateFilter({ lastName: "", firstName: "", location: "" });
   }
 
   function handlePaste(event, startRowIndex, startColumnIndex) {
@@ -328,33 +546,6 @@ function CensusTemplatePage({
     event.target.value = "";
   }
 
-  function attachReferenceFiles(event) {
-    const files = Array.from(event.target.files || []);
-    if (files.length === 0) return;
-
-    const supportedFiles = files.filter((file) =>
-      ["image/jpeg", "image/png", "application/pdf"].includes(file.type)
-    );
-
-    const nextFiles = supportedFiles.map((file) => ({
-      id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
-      name: file.name,
-      type: file.type,
-      url: URL.createObjectURL(file),
-    }));
-
-    setAttachedFiles((prev) => [...prev, ...nextFiles]);
-    event.target.value = "";
-  }
-
-  function removeAttachedFile(fileId) {
-    setAttachedFiles((prev) => {
-      const fileToRemove = prev.find((file) => file.id === fileId);
-      if (fileToRemove) URL.revokeObjectURL(fileToRemove.url);
-      return prev.filter((file) => file.id !== fileId);
-    });
-  }
-
   async function importRows() {
     const filledRows = rows.filter((row) => !isTemplateRowEmpty(row));
     if (filledRows.length === 0) return;
@@ -372,13 +563,13 @@ function CensusTemplatePage({
   }
 
   return (
-    <div style={pageStyle}>
-      <div style={shellStyle}>
-        <header style={headerStyle}>
+    <div style={{ ...pageStyle, padding: "12px" }}>
+      <div style={{ ...shellStyle, maxWidth: "none", margin: 0 }}>
+        <header style={{ ...headerStyle, padding: "20px", marginBottom: "12px", textAlign: "left" }}>
           <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
             Census template
           </p>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "10px 0 16px" }}>
+          <div style={{ display: "flex", justifyContent: "flex-start", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "10px 0 16px" }}>
             {isEditingTitle ? (
               <>
                 <input
@@ -413,7 +604,7 @@ function CensusTemplatePage({
               </>
             )}
           </div>
-          <div style={{ display: "flex", justifyContent: "center", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px", flexWrap: "wrap" }}>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Census Notebook
             </a>
@@ -426,7 +617,7 @@ function CensusTemplatePage({
           </div>
         </header>
 
-        <section style={{ ...cardStyle, padding: "24px" }}>
+        <section style={{ ...cardStyle, padding: "12px", marginBottom: "12px" }}>
           {template.note && (
             <div style={{ background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: "10px", padding: "16px", marginBottom: "18px", color: "#78350f", lineHeight: 1.6, whiteSpace: "pre-line" }}>
               {template.note}
@@ -442,6 +633,14 @@ function CensusTemplatePage({
             </div>
           )}
 
+          {template.topInfo?.length > 0 && (
+            <div style={{ marginBottom: "12px", color: "#111827", fontSize: "13px", lineHeight: 1.45 }}>
+              {template.topInfo.map((line) => (
+                <div key={line}>{line}</div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
             <div>
               <h2 style={{ margin: 0 }}>Paste or enter census rows</h2>
@@ -452,49 +651,12 @@ function CensusTemplatePage({
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button onClick={addBlankRows} style={lightButtonStyle}>Add Rows</button>
               <button onClick={clearRows} style={lightButtonStyle}>Clear</button>
-              <label style={{ ...buttonStyle, display: "inline-block" }}>
+              <label style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px" }}>
                 Import CSV
                 <input type="file" accept=".csv,.txt" onChange={importCsvFile} style={{ display: "none" }} />
               </label>
               <button onClick={importRows} disabled={!activeProject} style={lightButtonStyle}>Add Filled Rows to Project</button>
             </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(140px, 1fr)) auto", gap: "8px", alignItems: "center", marginTop: "18px" }}>
-            <input
-              value={templateFilter.lastName}
-              onChange={(event) => setTemplateFilter((prev) => ({ ...prev, lastName: event.target.value }))}
-              placeholder="Filter last name"
-              style={inputStyle}
-            />
-            <input
-              value={templateFilter.firstName}
-              onChange={(event) => setTemplateFilter((prev) => ({ ...prev, firstName: event.target.value }))}
-              placeholder="Filter first name"
-              style={inputStyle}
-            />
-            <input
-              value={templateFilter.location}
-              onChange={(event) => setTemplateFilter((prev) => ({ ...prev, location: event.target.value }))}
-              placeholder="Filter location"
-              style={inputStyle}
-            />
-            <button
-              onClick={resetTemplateFilter}
-              disabled={!hasTemplateFilter}
-              aria-label="Reset template filter"
-              title="Reset filter"
-              style={{
-                ...lightButtonStyle,
-                width: "42px",
-                minHeight: "40px",
-                padding: 0,
-                color: hasTemplateFilter ? "#dc2626" : "#9ca3af",
-                cursor: hasTemplateFilter ? "pointer" : "not-allowed",
-              }}
-            >
-              X
-            </button>
           </div>
 
           <div style={{ marginTop: "18px" }}>
@@ -520,52 +682,8 @@ function CensusTemplatePage({
             </div>
           </div>
 
-          <div style={{ marginTop: "18px" }}>
-            <label style={{ ...lightButtonStyle, display: "inline-block" }}>
-              Attach Images/PDFs
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                multiple
-                onChange={attachReferenceFiles}
-                style={{ display: "none" }}
-              />
-            </label>
-
-            {attachedFiles.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "10px", marginTop: "12px" }}>
-                {attachedFiles.map((file) => (
-                  <div key={file.id} style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", background: "#f9fafb" }}>
-                    {file.type.startsWith("image/") ? (
-                      <img
-                        src={file.url}
-                        alt={file.name}
-                        style={{ width: "100%", height: "110px", objectFit: "cover", display: "block" }}
-                      />
-                    ) : (
-                      <div style={{ height: "110px", display: "flex", alignItems: "center", justifyContent: "center", background: "#fee2e2", color: "#991b1b", fontWeight: "700" }}>
-                        PDF
-                      </div>
-                    )}
-                    <div style={{ padding: "8px" }}>
-                      <div title={file.name} style={{ fontSize: "12px", color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {file.name}
-                      </div>
-                      <button
-                        onClick={() => removeAttachedFile(file.id)}
-                        style={{ ...lightButtonStyle, width: "100%", marginTop: "6px", padding: "6px", color: "#dc2626" }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{ overflow: "auto", marginTop: "18px", border: "1px solid #e5e7eb", borderRadius: "10px" }}>
-            <table style={{ borderCollapse: "collapse", minWidth: "2600px", width: "100%", fontSize: "13px" }}>
+          <div style={{ overflow: "auto", marginTop: "12px", border: "1px solid #e5e7eb", borderRadius: "8px" }}>
+            <table style={{ borderCollapse: "collapse", minWidth: `${Math.max(760, template.columns.length * 104)}px`, width: "100%", fontSize: "13px" }}>
               <thead>
                 <tr>
                   {template.columns.map((column) => (
@@ -577,7 +695,7 @@ function CensusTemplatePage({
                         background: "#f3f4f6",
                         borderBottom: "1px solid #d1d5db",
                         borderRight: "1px solid #e5e7eb",
-                        padding: "8px",
+                        padding: "7px",
                         textAlign: "left",
                         whiteSpace: "nowrap",
                       }}
@@ -588,7 +706,7 @@ function CensusTemplatePage({
                 </tr>
               </thead>
               <tbody>
-                {filteredTemplateRows.map(({ row, index: rowIndex }) => (
+                {rows.map((row, rowIndex) => (
                   <tr key={rowIndex}>
                     {template.columns.map((column, columnIndex) => (
                       <td key={column.key} style={{ borderBottom: "1px solid #f3f4f6", borderRight: "1px solid #f3f4f6", padding: 0 }}>
@@ -599,7 +717,7 @@ function CensusTemplatePage({
                           style={{
                             ...inputStyle,
                             width: "100%",
-                            minWidth: "96px",
+                            minWidth: "84px",
                             border: "none",
                             borderRadius: 0,
                             boxSizing: "border-box",
@@ -609,13 +727,6 @@ function CensusTemplatePage({
                     ))}
                   </tr>
                 ))}
-                {filteredTemplateRows.length === 0 && (
-                  <tr>
-                    <td colSpan={template.columns.length} style={{ padding: "18px", textAlign: "center", color: "#6b7280" }}>
-                      No rows match this filter.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -626,14 +737,284 @@ function CensusTemplatePage({
   );
 }
 
+function SourceImageCollectionPage({
+  pageStyle,
+  shellStyle,
+  headerStyle,
+  cardStyle,
+  lightButtonStyle,
+  inputStyle,
+}) {
+  const [sourceDirectoryHandle, setSourceDirectoryHandle] = useState(null);
+  const [sourceDirectoryName, setSourceDirectoryName] = useState("");
+  const [sourceDetails, setSourceDetails] = useState({
+    year: "",
+    state: "",
+    county: "",
+    town: "",
+    surname: "",
+    givenName: "",
+  });
+  const [collectedFiles, setCollectedFiles] = useState([]);
+  const collectedFilesRef = useRef([]);
+
+  const sourcePathParts = [
+    sourceDetails.year,
+    sourceDetails.state,
+    sourceDetails.county,
+    sourceDetails.town,
+  ]
+    .map(sanitizeFilePart)
+    .filter(Boolean);
+  const suggestedSourcePath = sourcePathParts.length > 0 ? sourcePathParts.join(" / ") : "Year / State / County / Town";
+  const sourceFilenameBase =
+    [
+      sourceDetails.year,
+      sourceDetails.state,
+      sourceDetails.county,
+      sourceDetails.town,
+      sourceDetails.surname,
+      sourceDetails.givenName,
+    ]
+      .map(sanitizeFilePart)
+      .filter(Boolean)
+      .join("-") || "census-source";
+
+  useEffect(() => {
+    collectedFilesRef.current = collectedFiles;
+  }, [collectedFiles]);
+
+  useEffect(() => {
+    return () => {
+      collectedFilesRef.current.forEach((file) => URL.revokeObjectURL(file.url));
+    };
+  }, []);
+
+  function updateSourceDetail(field, value) {
+    setSourceDetails((prev) => ({ ...prev, [field]: value }));
+  }
+
+  async function chooseSourcesFolder() {
+    if (!window.showDirectoryPicker) {
+      window.alert("Your browser does not support choosing a local folder. Use Chrome or Edge on HTTPS or localhost.");
+      return;
+    }
+
+    try {
+      const directoryHandle = await window.showDirectoryPicker({ mode: "readwrite" });
+      setSourceDirectoryHandle(directoryHandle);
+      setSourceDirectoryName(directoryHandle.name);
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        window.alert("Census Notebook could not use that folder.");
+      }
+    }
+  }
+
+  async function getTargetSourceDirectory() {
+    if (!sourceDirectoryHandle) return null;
+
+    let directoryHandle = sourceDirectoryHandle;
+    for (const part of sourcePathParts) {
+      directoryHandle = await directoryHandle.getDirectoryHandle(part, { create: true });
+    }
+
+    return directoryHandle;
+  }
+
+  async function getAvailableSourceFilename(directoryHandle, file, usedNames) {
+    const extension = getFileExtension(file.name) || (file.type === "application/pdf" ? ".pdf" : ".jpg");
+    let candidateName = `${sourceFilenameBase}${extension}`;
+    let counter = 2;
+
+    while (usedNames.has(candidateName) || await directoryHandle.getFileHandle(candidateName).then(() => true).catch(() => false)) {
+      candidateName = `${sourceFilenameBase}-${counter}${extension}`;
+      counter += 1;
+    }
+
+    usedNames.add(candidateName);
+    return candidateName;
+  }
+
+  async function copyFileToSourcesFolder(directoryHandle, file, savedName) {
+    const fileHandle = await directoryHandle.getFileHandle(savedName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(file);
+    await writable.close();
+  }
+
+  async function collectSourceFiles(event) {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+
+    if (!sourceDirectoryHandle) {
+      window.alert("Choose a Sources folder before attaching files so Census Notebook can copy and rename them.");
+      event.target.value = "";
+      return;
+    }
+
+    const supportedFiles = files.filter((file) =>
+      ["image/jpeg", "image/png", "application/pdf"].includes(file.type)
+    );
+    const targetDirectory = await getTargetSourceDirectory();
+    const usedNames = new Set(collectedFiles.map((file) => file.savedName || file.name));
+    const nextFiles = [];
+
+    for (const file of supportedFiles) {
+      try {
+        const savedName = await getAvailableSourceFilename(targetDirectory, file, usedNames);
+        await copyFileToSourcesFolder(targetDirectory, file, savedName);
+        nextFiles.push({
+          id: `${file.name}-${file.lastModified}-${Math.random().toString(36).slice(2, 8)}`,
+          name: file.name,
+          savedName,
+          savedPath: [sourceDirectoryName, ...sourcePathParts, savedName].filter(Boolean).join(" / "),
+          type: file.type,
+          url: URL.createObjectURL(file),
+        });
+      } catch {
+        window.alert(`Census Notebook could not copy ${file.name} to the selected Sources folder.`);
+      }
+    }
+
+    setCollectedFiles((prev) => [...prev, ...nextFiles]);
+    event.target.value = "";
+  }
+
+  function removeCollectedFile(fileId) {
+    setCollectedFiles((prev) => {
+      const fileToRemove = prev.find((file) => file.id === fileId);
+      if (fileToRemove) URL.revokeObjectURL(fileToRemove.url);
+      return prev.filter((file) => file.id !== fileId);
+    });
+  }
+
+  return (
+    <div style={pageStyle}>
+      <div style={shellStyle}>
+        <header style={headerStyle}>
+          <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+            Sources
+          </p>
+          <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Collect Census Images</h1>
+          <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            Back to Census Notebook
+          </a>
+        </header>
+
+        <main style={{ maxWidth: "980px", margin: "0 auto", textAlign: "left" }}>
+          <section style={cardStyle}>
+            <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", color: "#374151" }}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                <div style={{ fontSize: "13px" }}>
+                  <strong>Folder pattern:</strong>{" "}
+                  <code style={{ background: "#eef2ff", color: "#374151", padding: "3px 6px", borderRadius: "6px" }}>
+                    Sources / Year / State / County / Town
+                  </code>
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <button onClick={chooseSourcesFolder} style={lightButtonStyle}>
+                    Choose Sources Folder
+                  </button>
+                  <label style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px" }}>
+                    Attach Images/PDFs
+                    <input
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                      multiple
+                      onChange={collectSourceFiles}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                </div>
+              </div>
+              <p style={{ margin: "10px 0 0", fontSize: "13px" }}>
+                Sources folder: <strong>{sourceDirectoryName || "not selected"}</strong>
+              </p>
+              <p style={{ margin: "6px 0 0", fontSize: "13px" }}>
+                Suggested path: <code style={{ background: "#eef2ff", padding: "2px 6px", borderRadius: "6px" }}>{suggestedSourcePath}</code>
+              </p>
+              <p style={{ margin: "6px 0 0", fontSize: "13px" }}>
+                Suggested filename: <code style={{ background: "#eef2ff", padding: "2px 6px", borderRadius: "6px" }}>{sourceFilenameBase}</code>
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "10px", marginTop: "14px" }}>
+              {[
+                ["year", "Year"],
+                ["state", "State"],
+                ["county", "County"],
+                ["town", "Town"],
+                ["surname", "Surname"],
+                ["givenName", "Given name"],
+              ].map(([field, label]) => (
+                <label key={field} style={{ display: "flex", flexDirection: "column", gap: "5px", color: "#374151", fontWeight: "700", fontSize: "13px" }}>
+                  {label}
+                  <input
+                    value={sourceDetails[field]}
+                    onChange={(event) => updateSourceDetail(field, event.target.value)}
+                    style={inputStyle}
+                  />
+                </label>
+              ))}
+            </div>
+
+            {collectedFiles.length > 0 && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "10px", marginTop: "16px" }}>
+                {collectedFiles.map((file) => (
+                  <div key={file.id} style={{ border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden", background: "#f9fafb" }}>
+                    {file.type.startsWith("image/") ? (
+                      <img
+                        src={file.url}
+                        alt={file.name}
+                        style={{ width: "100%", height: "120px", objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <div style={{ height: "120px", display: "flex", alignItems: "center", justifyContent: "center", background: "#fee2e2", color: "#991b1b", fontWeight: "700" }}>
+                        PDF
+                      </div>
+                    )}
+                    <div style={{ padding: "8px" }}>
+                      <div title={file.savedName} style={{ fontSize: "12px", color: "#047857", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "700" }}>
+                        {file.savedName}
+                      </div>
+                      <div title={file.savedPath} style={{ fontSize: "12px", color: "#4b5563", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: "4px" }}>
+                        {file.savedPath}
+                      </div>
+                      <button
+                        onClick={() => removeCollectedFile(file.id)}
+                        style={{ ...lightButtonStyle, width: "100%", marginTop: "6px", padding: "6px", color: "#dc2626" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </main>
+        <CopyrightFooter />
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [data, setData] = useState(loadData);
+  const [dataStorageReady, setDataStorageReady] = useState(API_ENABLED);
   const [currentPage, setCurrentPage] = useState(window.location.hash || "#/");
   const [apiConnected, setApiConnected] = useState(false);
-  const [statusMessage, setStatusMessage] = useState("Using browser storage until the FastAPI backend is running.");
+  const [statusMessage, setStatusMessage] = useState("Loading your local data...");
   const [query, setQuery] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
+  const [searchResultsCleared, setSearchResultsCleared] = useState(false);
+  const [recordsByYearSelection, setRecordsByYearSelection] = useState("");
+  const [recordsByYearSort, setRecordsByYearSort] = useState({
+    field: "page",
+    direction: "asc",
+  });
   const [newProjectName, setNewProjectName] = useState("");
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
   const [customTemplateDraft, setCustomTemplateDraft] = useState({
@@ -648,6 +1029,28 @@ export default function App() {
     location: "",
   });
   const [timelineHasRun, setTimelineHasRun] = useState(false);
+  const [neighborsSearch, setNeighborsSearch] = useState({
+    lastName: "",
+    firstName: "",
+    birth: "",
+    location: "",
+  });
+  const [neighborsHasRun, setNeighborsHasRun] = useState(false);
+  const [householdSearch, setHouseholdSearch] = useState({
+    lastName: "",
+    firstName: "",
+    birth: "",
+    location: "",
+  });
+  const [householdHasRun, setHouseholdHasRun] = useState(false);
+  const [editingSearchRecordId, setEditingSearchRecordId] = useState("");
+  const [editingSearchRecordDraft, setEditingSearchRecordDraft] = useState({
+    year: "",
+    name: "",
+    location: "",
+    household: "",
+    notes: "",
+  });
   const [newRecord, setNewRecord] = useState({
     year: "",
     name: "",
@@ -660,18 +1063,30 @@ export default function App() {
     let cancelled = false;
 
     async function loadProjectsFromApi() {
+      if (!API_ENABLED) {
+        const storedData = await loadStoredData();
+        if (cancelled) return;
+
+        setData(storedData);
+        setApiConnected(false);
+        setDataStorageReady(true);
+        setStatusMessage("Your data is stored locally on this device.");
+        return;
+      }
+
       try {
         const projects = await api.fetchProjects();
         if (cancelled) return;
 
         setData((prev) => toData(projects, prev.activeProjectId));
         setApiConnected(true);
-        setStatusMessage("Connected to FastAPI backend.");
+        setStatusMessage("Connected to your private data service.");
       } catch {
         if (cancelled) return;
 
         setApiConnected(false);
-        setStatusMessage("Using browser storage until the FastAPI backend is running.");
+        setDataStorageReady(true);
+        setStatusMessage("Your data is stored locally on this device.");
       }
     }
 
@@ -692,10 +1107,30 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!apiConnected) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (!apiConnected && dataStorageReady) {
+      writeLocalDatabaseData(data).catch(() => {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch {
+          setStatusMessage("Local storage is full. Export a backup before adding more records.");
+        }
+      });
     }
-  }, [apiConnected, data]);
+  }, [apiConnected, data, dataStorageReady]);
+
+  useEffect(() => {
+    if (!currentPage.startsWith("#/project-data")) return;
+
+    const recordId = getHashSearchParams(currentPage).get("record");
+    if (!recordId) return;
+
+    window.setTimeout(() => {
+      document.getElementById(`record-${recordId}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 0);
+  }, [currentPage, data.projects]);
 
   useEffect(() => {
     localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(customTemplates));
@@ -731,6 +1166,70 @@ export default function App() {
     );
   }, [data.projects]);
 
+  const favoriteRecords = useMemo(() => allRecords.filter((record) => record.bookmarked), [allRecords]);
+
+  const duplicateGroups = useMemo(() => {
+    const confidenceRank = { Exact: 3, Likely: 2, Possible: 1 };
+    const parent = new Map(allRecords.map((record) => [record.id, record.id]));
+    const groupConfidence = new Map();
+    const strongestConfidence = (left, right) =>
+      (confidenceRank[left] || 0) >= (confidenceRank[right] || 0) ? left : right;
+
+    function find(recordId) {
+      const parentId = parent.get(recordId);
+      if (parentId === recordId) return recordId;
+      const root = find(parentId);
+      parent.set(recordId, root);
+      return root;
+    }
+
+    function join(leftId, rightId, confidence) {
+      const leftRoot = find(leftId);
+      const rightRoot = find(rightId);
+      const nextConfidence = strongestConfidence(confidence, groupConfidence.get(leftRoot));
+
+      if (leftRoot !== rightRoot) {
+        parent.set(rightRoot, leftRoot);
+        const rightConfidence = groupConfidence.get(rightRoot);
+        groupConfidence.set(leftRoot, strongestConfidence(nextConfidence, rightConfidence));
+        return;
+      }
+
+      groupConfidence.set(leftRoot, nextConfidence);
+    }
+
+    for (let leftIndex = 0; leftIndex < allRecords.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < allRecords.length; rightIndex += 1) {
+        const confidence = getDuplicateConfidence(allRecords[leftIndex], allRecords[rightIndex]);
+        if (confidence) join(allRecords[leftIndex].id, allRecords[rightIndex].id, confidence);
+      }
+    }
+
+    const groups = new Map();
+    allRecords.forEach((record) => {
+      const root = find(record.id);
+      if (!groups.has(root)) groups.set(root, []);
+      groups.get(root).push(record);
+    });
+
+    return Array.from(groups.entries())
+      .map(([root, records]) => ({
+        id: root,
+        confidence: groupConfidence.get(root) || "Possible",
+        records: records.sort((left, right) => {
+          const yearComparison = compareRecordValues(left.year, right.year);
+          if (yearComparison !== 0) return yearComparison;
+          return compareRecordValues(left.name, right.name);
+        }),
+      }))
+      .filter((group) => group.records.length > 1)
+      .sort((left, right) => {
+        const confidenceComparison = confidenceRank[right.confidence] - confidenceRank[left.confidence];
+        if (confidenceComparison !== 0) return confidenceComparison;
+        return compareRecordValues(left.records[0]?.name, right.records[0]?.name);
+      });
+  }, [allRecords]);
+
   const years = useMemo(() => {
     return Array.from(new Set(allRecords.map((r) => r.year).filter(Boolean))).sort();
   }, [allRecords]);
@@ -759,6 +1258,130 @@ export default function App() {
       .sort((a, b) => String(a.year || "").localeCompare(String(b.year || "")));
   }, [allRecords, timelineSearch]);
 
+  const neighborResults = useMemo(() => {
+    const firstName = neighborsSearch.firstName.trim().toLowerCase();
+    const lastName = neighborsSearch.lastName.trim().toLowerCase();
+    const birth = neighborsSearch.birth.trim().toLowerCase();
+    const location = neighborsSearch.location.trim().toLowerCase();
+
+    if (!firstName && !lastName && !birth && !location) return [];
+
+    return data.projects.flatMap((project) => {
+      return project.records
+        .map((record, index) => ({ record, index }))
+        .filter(({ record }) => {
+          const name = String(record.name || "").toLowerCase();
+          const recordLocation = String(record.location || "").toLowerCase();
+          const notes = String(record.notes || "").toLowerCase();
+
+          if (firstName && !name.includes(firstName)) return false;
+          if (lastName && !name.includes(lastName)) return false;
+          if (birth && !notes.includes(birth) && !String(record.year || "").includes(birth)) return false;
+          if (location && !recordLocation.includes(location) && !notes.includes(location)) return false;
+
+          return true;
+        })
+        .map(({ record, index }) => {
+          const recordLocation = String(record.location || "").trim().toLowerCase();
+          const nearbyRecords = project.records
+            .map((candidate, candidateIndex) => ({ candidate, candidateIndex }))
+            .filter(({ candidate }) => {
+              const sameYear = String(candidate.year || "") === String(record.year || "");
+              const sameLocation =
+                !recordLocation || String(candidate.location || "").trim().toLowerCase() === recordLocation;
+              return sameYear && sameLocation;
+            });
+          const households = [];
+
+          nearbyRecords.forEach(({ candidate, candidateIndex }) => {
+            const dwellingNumber = getRecordDwellingNumber(candidate);
+            const familyNumber = getRecordFamilyNumber(candidate);
+            const householdKey = getRecordDwellingOrFamilyKey(candidate);
+            const existingHousehold = households.find((household) => household.key === householdKey);
+
+            if (existingHousehold) {
+              existingHousehold.records.push(candidate);
+              if (isHeadOfHousehold(candidate)) existingHousehold.head = candidate;
+              return;
+            }
+
+            households.push({
+              key: householdKey,
+              dwellingNumber,
+              familyNumber,
+              head: candidate,
+              firstIndex: candidateIndex,
+              records: [candidate],
+            });
+          });
+
+          const matchHouseholdKey = getRecordDwellingOrFamilyKey(record);
+          const matchHouseholdIndex = households.findIndex((household) =>
+            household.key === matchHouseholdKey || household.records.some((candidate) => candidate.id === record.id)
+          );
+          const neighbors =
+            matchHouseholdIndex >= 0
+              ? households.slice(Math.max(0, matchHouseholdIndex - 5), matchHouseholdIndex + 6)
+              : project.records.slice(Math.max(0, index - 5), index + 6).map((candidate, candidateIndex) => ({
+                  key: getRecordDwellingOrFamilyKey(candidate),
+                  dwellingNumber: getRecordDwellingNumber(candidate),
+                  familyNumber: getRecordFamilyNumber(candidate),
+                  head: candidate,
+                  firstIndex: Math.max(0, index - 5) + candidateIndex,
+                  records: [candidate],
+                }));
+
+          return {
+            projectId: project.id,
+            projectName: project.name,
+            match: record,
+            matchHouseholdKey,
+            neighbors,
+          };
+        });
+    });
+  }, [data.projects, neighborsSearch]);
+
+  const householdResults = useMemo(() => {
+    const firstName = householdSearch.firstName.trim().toLowerCase();
+    const lastName = householdSearch.lastName.trim().toLowerCase();
+    const birth = householdSearch.birth.trim().toLowerCase();
+    const location = householdSearch.location.trim().toLowerCase();
+
+    if (!firstName && !lastName && !birth && !location) return [];
+
+    return data.projects.flatMap((project) => {
+      return project.records
+        .map((record) => ({ ...record, projectId: project.id, projectName: project.name }))
+        .filter((record) => {
+          const name = String(record.name || "").toLowerCase();
+          const recordLocation = String(record.location || "").toLowerCase();
+          const notes = String(record.notes || "").toLowerCase();
+
+          if (firstName && !name.includes(firstName)) return false;
+          if (lastName && !name.includes(lastName)) return false;
+          if (birth && !notes.includes(birth) && !String(record.year || "").includes(birth)) return false;
+          if (location && !recordLocation.includes(location) && !notes.includes(location)) return false;
+
+          return true;
+        })
+        .map((match) => {
+          const householdKey = getRecordHouseholdKey(match);
+          const members = project.records
+            .map((record) => ({ ...record, projectId: project.id, projectName: project.name }))
+            .filter((record) => getRecordHouseholdKey(record) === householdKey);
+
+          return {
+            projectId: project.id,
+            projectName: project.name,
+            match,
+            dwellingNumber: getRecordDwellingNumber(match),
+            members: members.length > 0 ? members : [match],
+          };
+        });
+    });
+  }, [data.projects, householdSearch]);
+
   const filteredRecords = useMemo(() => {
     const q = query.trim().toLowerCase();
 
@@ -781,6 +1404,36 @@ export default function App() {
     });
   }, [allRecords, query, yearFilter, showBookmarkedOnly]);
 
+  const visibleSearchRecords = searchResultsCleared ? [] : filteredRecords;
+  const selectedRecordsByYear = recordsByYearSelection || years[0] || "";
+  const recordsByYear = useMemo(() => {
+    const sortAccessors = {
+      page: getRecordPageNumber,
+      location: (record) => record.location,
+      surname: getRecordSurname,
+      dwelling: getRecordDwellingNumber,
+      line: getRecordLineNumber,
+      family: getRecordFamilyNumber,
+    };
+    const getSortValue = sortAccessors[recordsByYearSort.field] || sortAccessors.page;
+
+    return allRecords
+      .filter((record) => String(record.year || "") === String(selectedRecordsByYear || ""))
+      .sort((left, right) => {
+        const primaryComparison = compareRecordValues(
+          getSortValue(left),
+          getSortValue(right),
+          recordsByYearSort.direction
+        );
+        if (primaryComparison !== 0) return primaryComparison;
+
+        const lineComparison = compareRecordValues(getRecordLineNumber(left), getRecordLineNumber(right));
+        if (lineComparison !== 0) return lineComparison;
+
+        return compareRecordValues(left.name, right.name);
+      });
+  }, [allRecords, recordsByYearSort, selectedRecordsByYear]);
+
   async function createProject() {
     const name = newProjectName.trim();
     if (!name) return;
@@ -796,7 +1449,7 @@ export default function App() {
         return;
       } catch {
         setApiConnected(false);
-        setStatusMessage("API request failed. Changes are saving in browser storage for now.");
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
       }
     }
 
@@ -829,7 +1482,7 @@ export default function App() {
         await api.deleteProject(activeProject.id);
       } catch {
         setApiConnected(false);
-        setStatusMessage("API request failed. Changes are saving in browser storage for now.");
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
       }
     }
 
@@ -863,7 +1516,7 @@ export default function App() {
         record = await api.createRecord(activeProject.id, recordDraft);
       } catch {
         setApiConnected(false);
-        setStatusMessage("API request failed. Changes are saving in browser storage for now.");
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
       }
     }
 
@@ -885,7 +1538,7 @@ export default function App() {
         await api.updateRecord(recordId, changes);
       } catch {
         setApiConnected(false);
-        setStatusMessage("API request failed. Changes are saving in browser storage for now.");
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
       }
     }
 
@@ -905,12 +1558,19 @@ export default function App() {
   }
 
   async function deleteRecord(projectId, recordId) {
+    const project = data.projects.find((candidate) => candidate.id === projectId);
+    const record = project?.records.find((candidate) => candidate.id === recordId);
+    const confirmed = window.confirm(
+      `Delete "${record?.name || "this record"}"? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
     if (apiConnected) {
       try {
         await api.deleteRecord(recordId);
       } catch {
         setApiConnected(false);
-        setStatusMessage("API request failed. Changes are saving in browser storage for now.");
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
       }
     }
 
@@ -922,6 +1582,33 @@ export default function App() {
           : project
       ),
     }));
+  }
+
+  function startEditingSearchRecord(record) {
+    setEditingSearchRecordId(record.id);
+    setEditingSearchRecordDraft({
+      year: record.year || "",
+      name: record.name || "",
+      location: record.location || "",
+      household: record.household || "",
+      notes: record.notes || "",
+    });
+  }
+
+  function cancelEditingSearchRecord() {
+    setEditingSearchRecordId("");
+    setEditingSearchRecordDraft({
+      year: "",
+      name: "",
+      location: "",
+      household: "",
+      notes: "",
+    });
+  }
+
+  async function saveEditingSearchRecord(projectId, recordId) {
+    await updateRecord(projectId, recordId, editingSearchRecordDraft);
+    cancelEditingSearchRecord();
   }
 
   async function importTemplateRows(template, templateRows) {
@@ -937,7 +1624,7 @@ export default function App() {
         }
       } catch {
         setApiConnected(false);
-        setStatusMessage("API request failed. Changes are saving in browser storage for now.");
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
       }
     }
 
@@ -1030,34 +1717,82 @@ export default function App() {
   }
 
   function exportJson() {
-    downloadFile("census-notebook-export.json", JSON.stringify(data, null, 2));
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    downloadFile(`census-notebook-backup-${timestamp}.json`, JSON.stringify(data, null, 2));
+  }
+
+  function importBackupFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const importedData = JSON.parse(String(reader.result || ""));
+        if (!Array.isArray(importedData.projects)) {
+          window.alert("This backup file does not look like a Census Notebook backup.");
+          return;
+        }
+
+        const confirmed = window.confirm(
+          "Import this backup? It will replace the projects currently stored on this device."
+        );
+        if (!confirmed) return;
+
+        const normalizedData = toData(importedData.projects, importedData.activeProjectId);
+        setData(normalizedData);
+        setDataStorageReady(true);
+        writeLocalDatabaseData(normalizedData).catch(() => {
+          window.alert("The backup was opened, but Census Notebook could not save it locally.");
+        });
+      } catch {
+        window.alert("Census Notebook could not read this backup file.");
+      } finally {
+        event.target.value = "";
+      }
+    };
+
+    reader.readAsText(file);
   }
 
   const pageStyle = {
     minHeight: "100vh",
-    background: "#f3f4f6",
+    minWidth: "fit-content",
+    backgroundColor: "#f6f0e3",
+    backgroundImage: `
+      linear-gradient(rgba(55, 65, 81, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(55, 65, 81, 0.04) 1px, transparent 1px),
+      radial-gradient(circle at 18% 12%, rgba(146, 64, 14, 0.09), transparent 28%),
+      radial-gradient(circle at 82% 8%, rgba(30, 64, 175, 0.06), transparent 24%),
+      linear-gradient(135deg, #fbf7ed 0%, #f4ead8 48%, #efe4cf 100%)
+    `,
+    backgroundSize: "42px 42px, 42px 42px, 100% 100%, 100% 100%, 100% 100%",
+    backgroundAttachment: "fixed",
     color: "#111827",
     fontFamily: "Arial, Helvetica, sans-serif",
     padding: "24px",
+    boxSizing: "border-box",
   };
 
   const shellStyle = {
-    maxWidth: "1300px",
+    width: "100%",
+    maxWidth: "1800px",
     margin: "0 auto",
   };
 
   const headerStyle = {
-    background: "white",
+    background: "rgba(255, 252, 246, 0.94)",
     padding: "32px",
     borderRadius: "18px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+    border: "1px solid rgba(120, 113, 108, 0.18)",
+    boxShadow: "0 18px 45px rgba(68, 53, 35, 0.12)",
     marginBottom: "24px",
     textAlign: "center",
   };
 
   const mainStyle = {
     display: "grid",
-    gridTemplateColumns: "320px 1fr",
+    gridTemplateColumns: "300px minmax(0, 1fr)",
     gap: "24px",
     alignItems: "start",
   };
@@ -1069,17 +1804,19 @@ export default function App() {
   };
 
   const cardStyle = {
-    background: "white",
+    background: "rgba(255, 252, 246, 0.95)",
     padding: "20px",
     borderRadius: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    border: "1px solid rgba(120, 113, 108, 0.16)",
+    boxShadow: "0 12px 30px rgba(68, 53, 35, 0.10)",
     marginBottom: "16px",
   };
 
   const navLinkStyle = {
     display: "block",
     padding: "14px",
-    background: "#e5e7eb",
+    background: "#efe7d8",
+    border: "1px solid rgba(120, 113, 108, 0.18)",
     borderRadius: "12px",
     textDecoration: "none",
     color: "#111827",
@@ -1105,7 +1842,27 @@ export default function App() {
     color: "#111827",
     cursor: "pointer",
     fontWeight: "600",
+    whiteSpace: "nowrap",
   };
+
+  const actionButtonStyle = {
+    ...lightButtonStyle,
+    width: "40px",
+    height: "40px",
+    padding: 0,
+    fontSize: "18px",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const highlightActionButtonStyle = (isHighlighted) => ({
+    ...actionButtonStyle,
+    background: isHighlighted ? "#facc15" : "#fef3c7",
+    borderColor: "#f59e0b",
+    color: "#78350f",
+    fontWeight: "800",
+  });
 
   const inputStyle = {
     padding: "10px",
@@ -1212,6 +1969,19 @@ export default function App() {
     );
   }
 
+  if (currentPage === "#/collect-census-images") {
+    return (
+      <SourceImageCollectionPage
+        pageStyle={pageStyle}
+        shellStyle={shellStyle}
+        headerStyle={headerStyle}
+        cardStyle={cardStyle}
+        lightButtonStyle={lightButtonStyle}
+        inputStyle={inputStyle}
+      />
+    );
+  }
+
   if (currentPage.startsWith("#/templates/")) {
     const templateId = currentPage.replace("#/templates/", "");
     const template = allTemplates.find((candidate) => candidate.id === templateId);
@@ -1255,6 +2025,360 @@ export default function App() {
               here once the template data is added.
             </p>
           </section>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/records-by-year") {
+    const sortableColumns = [
+      { field: "page", label: "Page", value: getRecordPageNumber },
+      { field: "location", label: "Location", value: (record) => record.location },
+      { field: "surname", label: "Surname", value: getRecordSurname },
+      { field: "dwelling", label: "Dwelling", value: getRecordDwellingNumber },
+      { field: "line", label: "Line", value: getRecordLineNumber },
+      { field: "family", label: "Family", value: getRecordFamilyNumber },
+    ];
+
+    const sortButtonStyle = (field) => ({
+      background: "none",
+      border: "none",
+      padding: 0,
+      color: "#111827",
+      cursor: "pointer",
+      fontWeight: "700",
+      font: "inherit",
+      textAlign: "left",
+      textDecoration: recordsByYearSort.field === field ? "underline" : "none",
+    });
+
+    const changeRecordsByYearSort = (field) => {
+      setRecordsByYearSort((prev) => ({
+        field,
+        direction: prev.field === field && prev.direction === "asc" ? "desc" : "asc",
+      }));
+    };
+
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Records by year
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Records by Year</h1>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Census Notebook
+            </a>
+          </header>
+
+          <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
+            <section style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={sectionTitleStyle}>Census Year</h2>
+                  <p style={{ margin: 0, color: "#4b5563" }}>
+                    Showing {recordsByYear.length} {recordsByYear.length === 1 ? "record" : "records"} for {selectedRecordsByYear || "no year selected"}.
+                  </p>
+                </div>
+
+                <select
+                  value={selectedRecordsByYear}
+                  onChange={(event) => setRecordsByYearSelection(event.target.value)}
+                  style={{ ...inputStyle, minWidth: "220px" }}
+                >
+                  {years.length === 0 && <option value="">No years available</option>}
+                  {years.map((year) => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "14px" }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6" }}>
+                      {sortableColumns.map((column) => (
+                        <th key={column.field} style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                          <button onClick={() => changeRecordsByYearSort(column.field)} style={sortButtonStyle(column.field)}>
+                            {column.label}
+                            {recordsByYearSort.field === column.field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
+                          </button>
+                        </th>
+                      ))}
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Given Name</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", minWidth: "230px" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recordsByYear.map((record) => {
+                      const givenName = getRecordGivenName(record);
+
+                      return (
+                        <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
+                          {sortableColumns.map((column) => (
+                            <td key={column.field} style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {column.value(record) || "N/A"}
+                            </td>
+                          ))}
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                            {givenName || record.name || "Unnamed record"}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
+                            {record.projectName}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", minWidth: "230px" }}>
+                            <a
+                              href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                              style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+                            >
+                              View
+                            </a>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {recordsByYear.length === 0 && (
+                      <tr>
+                        <td colSpan="9" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                          No records found for this year.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/favorites") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Favorites
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Favorite Records</h1>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Census Notebook
+            </a>
+          </header>
+
+          <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
+            <section style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "baseline", flexWrap: "wrap" }}>
+                <h2 style={sectionTitleStyle}>Starred Records</h2>
+                <span style={{ color: "#6b7280", fontWeight: "700" }}>
+                  {favoriteRecords.length} {favoriteRecords.length === 1 ? "favorite" : "favorites"}
+                </span>
+              </div>
+
+              <div style={{ overflowX: "auto", marginTop: "14px" }}>
+                <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "14px" }}>
+                  <thead>
+                    <tr style={{ background: "#f3f4f6" }}>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Household</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {favoriteRecords.map((record) => (
+                      <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                          {record.name || "Unnamed record"}
+                        </td>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.household}</td>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
+                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
+                          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                            <a
+                              href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                              style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+                            >
+                              View
+                            </a>
+                            <button
+                              onClick={() => updateRecord(record.projectId, record.id, { bookmarked: false })}
+                              aria-label="Remove favorite"
+                              title="Remove favorite"
+                              style={actionButtonStyle}
+                            >
+                              ★
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {favoriteRecords.length === 0 && (
+                      <tr>
+                        <td colSpan="6" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                          No favorite records yet. Use the star button on a record to save it here.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </main>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage.startsWith("#/project-data")) {
+    const params = getHashSearchParams(currentPage);
+    const selectedProjectId = params.get("project") || "all";
+    const selectedRecordId = params.get("record") || "";
+    const visibleProjects =
+      selectedProjectId === "all"
+        ? data.projects
+        : data.projects.filter((project) => project.id === selectedProjectId);
+    const visibleRecordCount = visibleProjects.reduce((total, project) => total + project.records.length, 0);
+
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Project data
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>All Census Data by Project</h1>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+              <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+                Back to Census Notebook
+              </a>
+            </div>
+          </header>
+
+          <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
+            <section style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={sectionTitleStyle}>Project Records</h2>
+                  <p style={{ margin: 0, color: "#4b5563" }}>
+                    Showing {visibleRecordCount} {visibleRecordCount === 1 ? "record" : "records"}.
+                  </p>
+                </div>
+
+                <select
+                  value={selectedProjectId}
+                  onChange={(event) => {
+                    window.location.hash =
+                      event.target.value === "all" ? "#/project-data" : `#/project-data?project=${event.target.value}`;
+                  }}
+                  style={{ ...inputStyle, minWidth: "240px" }}
+                >
+                  <option value="all">All projects</option>
+                  {data.projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </section>
+
+            {visibleProjects.map((project) => (
+              <section key={project.id} style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "baseline", flexWrap: "wrap" }}>
+                  <h2 style={sectionTitleStyle}>{project.name}</h2>
+                  <span style={{ color: "#6b7280", fontWeight: "700" }}>
+                    {project.records.length} {project.records.length === 1 ? "record" : "records"}
+                  </span>
+                </div>
+
+                <div style={{ overflowX: "auto", marginTop: "14px" }}>
+                  <table style={{ width: "100%", minWidth: "980px", borderCollapse: "collapse", fontSize: "14px" }}>
+                    <thead>
+                      <tr style={{ background: "#f3f4f6" }}>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Household</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {project.records.map((record) => (
+                        <tr
+                          id={`record-${record.id}`}
+                          key={record.id}
+                          style={{
+                            background: selectedRecordId === record.id ? "#dbeafe" : record.highlighted ? "#fef9c3" : "white",
+                            outline: selectedRecordId === record.id ? "2px solid #2563eb" : "none",
+                          }}
+                        >
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.household}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.notes}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              <button
+                                onClick={() => updateRecord(project.id, record.id, { bookmarked: !record.bookmarked })}
+                                aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
+                                title={record.bookmarked ? "Remove favorite" : "Favorite"}
+                                style={actionButtonStyle}
+                              >
+                                {record.bookmarked ? "★" : "☆"}
+                              </button>
+                              <button
+                                onClick={() => updateRecord(project.id, record.id, { highlighted: !record.highlighted })}
+                                aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
+                                title={record.highlighted ? "Remove highlight" : "Highlight"}
+                                style={highlightActionButtonStyle(record.highlighted)}
+                              >
+                                H
+                              </button>
+                              <button
+                                onClick={() => deleteRecord(project.id, record.id)}
+                                aria-label="Delete record"
+                                title="Delete"
+                                style={{ ...actionButtonStyle, color: "#dc2626" }}
+                              >
+                                X
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {project.records.length === 0 && (
+                        <tr>
+                          <td colSpan="6" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                            No records in this project yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            ))}
+          </main>
           <CopyrightFooter />
         </div>
       </div>
@@ -1305,6 +2429,34 @@ export default function App() {
                   <br />
                   <span style={{ color: "#4b5563", fontWeight: "400" }}>
                     Paste spreadsheet rows, import CSV files, attach source documents, and save template data.
+                  </span>
+                </a>
+                <a href="#/help/import-scope" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>How Much Census Data Should You Import?</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Decide whether to import full pages, direct family households, or both.
+                  </span>
+                </a>
+                <a href="#/help/cleaning-data" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>Tips for Cleaning Up Data Before Import</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Prepare OCR or spreadsheet data so imports, searches, and analysis work better.
+                  </span>
+                </a>
+                <a href="#/help/sources-attachments" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>Sources & Attachments</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Organize census images and PDFs in your own source folder.
+                  </span>
+                </a>
+                <a href="#/help/known-limitations" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>Known Limitations</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Understand local storage, backups, attachments, and browser limits.
                   </span>
                 </a>
               </div>
@@ -1388,7 +2540,7 @@ export default function App() {
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Age</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
-                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Household members</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Place</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1399,7 +2551,9 @@ export default function App() {
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Age"]) || "N/A"}</td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.location || "N/A"}</td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}</td>
-                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.household || "N/A"}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
+                              {getNoteValue(record.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "N/A"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1416,7 +2570,7 @@ export default function App() {
               <ul>
                 <li>Every census entry for a person.</li>
                 <li>A link from each result to the full household record.</li>
-                <li>Key fields side-by-side: age, location, occupation, and household members.</li>
+                <li>Key fields side-by-side: age, location, occupation, and birth place.</li>
               </ul>
             </section>
 
@@ -1428,13 +2582,395 @@ export default function App() {
                 <li>Name variations.</li>
               </ul>
             </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/analysis/neighbors") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Analysis
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Neighbors</h1>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Census Notebook
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Find nearby households on a census page</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Search for a head of household, then review up to 5 dwellings before and after that
+              person in the same project, census year, and location.
+            </p>
 
             <section style={helpSectionNoDividerStyle}>
-              <h3>Planned enhancement</h3>
-              <p>
-                Census Notebook can flag timeline gaps, such as <strong>Missing 1870 census</strong>,
-                when expected census years are not represented for a person.
-              </p>
+              <h3>Search for a person</h3>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setNeighborsHasRun(true);
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: "10px" }}>
+                  <input
+                    value={neighborsSearch.lastName}
+                    onChange={(event) => setNeighborsSearch((prev) => ({ ...prev, lastName: event.target.value }))}
+                    placeholder="Last name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={neighborsSearch.firstName}
+                    onChange={(event) => setNeighborsSearch((prev) => ({ ...prev, firstName: event.target.value }))}
+                    placeholder="First name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={neighborsSearch.birth}
+                    onChange={(event) => setNeighborsSearch((prev) => ({ ...prev, birth: event.target.value }))}
+                    placeholder="Birth year"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={neighborsSearch.location}
+                    onChange={(event) => setNeighborsSearch((prev) => ({ ...prev, location: event.target.value }))}
+                    placeholder="Location"
+                    style={inputStyle}
+                  />
+                </div>
+                <button type="submit" style={{ ...buttonStyle, marginTop: "12px" }}>Analyze</button>
+              </form>
+            </section>
+
+            {neighborsHasRun && (
+              <section style={helpSectionStyle}>
+                <h3>Results</h3>
+                {neighborResults.length > 0 ? (
+                  neighborResults.map((result) => (
+                    <div key={`${result.projectId}-${result.match.id}`} style={{ marginTop: "18px" }}>
+                      <h4 style={{ margin: "0 0 8px" }}>
+                        {result.match.name || "Unnamed record"} in {result.match.year || "unknown year"}
+                      </h4>
+                      <p style={{ margin: "0 0 10px", color: "#4b5563" }}>
+                        Project: {result.projectName}
+                        {result.match.location ? ` | Location: ${result.match.location}` : ""}
+                      </p>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                          <thead>
+                            <tr style={{ background: "#f3f4f6" }}>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Position</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Dwelling</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Family</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Head of Household</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Relationship</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.neighbors.map((household) => {
+                              const candidate = household.head;
+                              const matchHousehold = result.neighbors.find((item) => item.key === result.matchHouseholdKey);
+                              const offset = household.firstIndex - (matchHousehold?.firstIndex || 0);
+                              const position = offset === 0 ? "Match" : offset < 0 ? `${Math.abs(offset)} before` : `${offset} after`;
+
+                              return (
+                                <tr
+                                  key={household.key}
+                                  style={{ background: household.key === result.matchHouseholdKey ? "#dbeafe" : candidate.highlighted ? "#fef9c3" : "white" }}
+                                >
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{position}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{household.dwellingNumber || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{household.familyNumber || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                                    <a
+                                      href={`#/project-data?project=${result.projectId}&record=${candidate.id}`}
+                                      style={{ color: "#1d4ed8", textDecoration: "none" }}
+                                    >
+                                      {candidate.name || "Unnamed record"}
+                                    </a>
+                                  </td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{candidate.location}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(candidate) || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{candidate.notes}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: "#4b5563" }}>No matching records found.</p>
+                )}
+              </section>
+            )}
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>What it will show</h3>
+              <ul>
+                <li>The matching person or household.</li>
+                <li>Up to 5 dwelling numbers before the match.</li>
+                <li>Up to 5 dwelling numbers after the match.</li>
+                <li>If dwelling number is blank, Census Notebook uses family number instead.</li>
+                <li>Only the likely head of household for each dwelling or family group.</li>
+                <li>Links back to the full project data record.</li>
+              </ul>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/analysis/household") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Analysis
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Household</h1>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Census Notebook
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Find household members for a person</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Search for a person, then list the people entered in the same dwelling or household
+              group for that census record.
+            </p>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>Search for a person</h3>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setHouseholdHasRun(true);
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: "10px" }}>
+                  <input
+                    value={householdSearch.lastName}
+                    onChange={(event) => setHouseholdSearch((prev) => ({ ...prev, lastName: event.target.value }))}
+                    placeholder="Last name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={householdSearch.firstName}
+                    onChange={(event) => setHouseholdSearch((prev) => ({ ...prev, firstName: event.target.value }))}
+                    placeholder="First name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={householdSearch.birth}
+                    onChange={(event) => setHouseholdSearch((prev) => ({ ...prev, birth: event.target.value }))}
+                    placeholder="Birth year"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={householdSearch.location}
+                    onChange={(event) => setHouseholdSearch((prev) => ({ ...prev, location: event.target.value }))}
+                    placeholder="Location"
+                    style={inputStyle}
+                  />
+                </div>
+                <button type="submit" style={{ ...buttonStyle, marginTop: "12px" }}>Analyze</button>
+              </form>
+            </section>
+
+            {householdHasRun && (
+              <section style={helpSectionStyle}>
+                <h3>Results</h3>
+                {householdResults.length > 0 ? (
+                  householdResults.map((result) => (
+                    <div key={`${result.projectId}-${result.match.id}`} style={{ marginTop: "18px" }}>
+                      <h4 style={{ margin: "0 0 8px" }}>
+                        {result.match.name || "Unnamed record"} in {result.match.year || "unknown year"}
+                      </h4>
+                      <p style={{ margin: "0 0 10px", color: "#4b5563" }}>
+                        Project: {result.projectName}
+                        {result.match.location ? ` | Location: ${result.match.location}` : ""}
+                        {result.dwellingNumber ? ` | Dwelling: ${result.dwellingNumber}` : ""}
+                      </p>
+                      <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                          <thead>
+                            <tr style={{ background: "#f3f4f6" }}>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Relationship</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Age</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Place</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {result.members.map((member) => (
+                              <tr
+                                key={member.id}
+                                style={{ background: member.id === result.match.id ? "#dbeafe" : member.highlighted ? "#fef9c3" : "white" }}
+                              >
+                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                                  <a
+                                    href={`#/project-data?project=${result.projectId}&record=${member.id}`}
+                                    style={{ color: "#1d4ed8", textDecoration: "none" }}
+                                  >
+                                    {member.name || "Unnamed record"}
+                                  </a>
+                                </td>
+                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(member) || "N/A"}</td>
+                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(member.notes, ["Age"]) || "N/A"}</td>
+                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
+                                  {getNoteValue(member.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "N/A"}
+                                </td>
+                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
+                                  {getNoteValue(member.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}
+                                </td>
+                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{member.notes}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ color: "#4b5563" }}>No matching records found.</p>
+                )}
+              </section>
+            )}
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>What it will show</h3>
+              <ul>
+                <li>The found person highlighted in the household group.</li>
+                <li>All entered records with the same dwelling or household identifier.</li>
+                <li>Relationship, age, birth place, occupation, and notes when available.</li>
+                <li>Links back to the full project data record.</li>
+              </ul>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/analysis/duplicates") {
+    const confidenceStyles = {
+      Exact: { background: "#dcfce7", color: "#166534" },
+      Likely: { background: "#fef3c7", color: "#92400e" },
+      Possible: { background: "#e0f2fe", color: "#075985" },
+    };
+
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Analysis
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Duplicates</h1>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Census Notebook
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Review possible duplicate records</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Census Notebook looks for records that may represent the same census entry. This page
+              is review-only, so no records are changed unless you open a record and edit or delete it yourself.
+            </p>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>How matches are labeled</h3>
+              <ul>
+                <li><strong>Exact:</strong> same year, name, location, and matching page/line, dwelling, or family number.</li>
+                <li><strong>Likely:</strong> same year, similar name, same location, and at least one supporting detail.</li>
+                <li><strong>Possible:</strong> similar name with a shared year, location, age, or birth clue.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Results</h3>
+              {duplicateGroups.length > 0 ? (
+                duplicateGroups.map((group) => (
+                  <div key={group.id} style={{ marginTop: "18px", border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap", padding: "12px", background: "#f9fafb" }}>
+                      <h4 style={{ margin: 0 }}>
+                        {group.records[0]?.name || "Unnamed records"} ({group.records.length} records)
+                      </h4>
+                      <span
+                        style={{
+                          ...(confidenceStyles[group.confidence] || confidenceStyles.Possible),
+                          padding: "5px 9px",
+                          borderRadius: "999px",
+                          fontWeight: "700",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {group.confidence}
+                      </span>
+                    </div>
+
+                    <div style={{ overflowX: "auto" }}>
+                      <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "14px" }}>
+                        <thead>
+                          <tr style={{ background: "#f3f4f6" }}>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Page</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Line</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Dwelling</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Family</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.records.map((record) => (
+                            <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name || "Unnamed record"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordPageNumber(record) || "N/A"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordLineNumber(record) || "N/A"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordDwellingNumber(record) || "N/A"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordFamilyNumber(record) || "N/A"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
+                                <a
+                                  href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                  style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+                                >
+                                  View
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p style={{ color: "#4b5563" }}>No possible duplicates found.</p>
+              )}
             </section>
           </article>
           <CopyrightFooter />
@@ -1488,19 +3024,26 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Optional sharing</h3>
+              <h3>Favorites and highlights</h3>
               <p>
-                By default, your data is completely private. Optional sharing features can give you
-                flexibility when you want it.
+                Mark a record as a <strong>Favorite</strong> with the star button when you want to
+                return to it later. Favorites are saved with your project data and can be reviewed
+                together from the Favorites page.
               </p>
+              <p>
+                Use <strong>Highlight</strong> when you want one record to stand out while you are
+                reviewing a page or comparing search results. Highlights remain visible across
+                different views so the same record is easy to spot as you move through the app.
+                Click <strong>Highlight</strong> again to turn the highlight off when you no longer
+                need that visual marker.
+              </p>
+              <p>The record action buttons use simple symbols:</p>
               <ul>
-                <li>Export to CSV or JSON to share with another researcher.</li>
-                <li>Import data from spreadsheets or shared files.</li>
-                <li>Create a read-only copy for collaboration.</li>
+                <li><strong>✎</strong> edits the record.</li>
+                <li><strong>★</strong> marks the record as a Favorite. <strong>☆</strong> means it is not currently a Favorite.</li>
+                <li><strong>H</strong> highlights the record. A yellow H means the highlight is turned on.</li>
+                <li><strong>X</strong> deletes the record.</li>
               </ul>
-              <p>
-                This approach keeps your data private by default while still allowing controlled sharing.
-              </p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -1511,7 +3054,6 @@ export default function App() {
                 <li>Flexible access in a browser or desktop app.</li>
                 <li>Tools to help you see patterns, not just store records.</li>
               </ul>
-              <p>Census Notebook gives you a comprehensive way to use your census records.</p>
             </section>
           </article>
           <CopyrightFooter />
@@ -1567,10 +3109,10 @@ export default function App() {
 
             <section style={helpSectionStyle}>
               <h3>Enter Data Manually</h3>
-              <p>To add data directly in the app:</p>
+              <p>To add data directly:</p>
               <ul>
-                <li>Click <strong>Add Rows</strong>.</li>
                 <li>Type or paste information into each field.</li>
+                <li>Click <strong>Add Rows</strong> to add 5 blank rows to the bottom of the table.</li>
               </ul>
               <p>This is useful when working from a single census page or handwritten notes.</p>
             </section>
@@ -1583,7 +3125,7 @@ export default function App() {
                 <li>Correct spelling or formatting.</li>
                 <li>Add or remove rows as needed.</li>
               </ul>
-              <p>You are working in a staging area, so nothing is saved until you decide.</p>
+              <p>You are working in a staging area, so nothing is saved until you click <strong>Add Filled Rows to Project</strong>.</p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -1624,14 +3166,21 @@ export default function App() {
 
             <section style={helpSectionStyle}>
               <h3>Attaching Source Documents</h3>
-              <p>For deeper research and verification, you can attach files to a census year:</p>
+              <p>
+                For deeper research and verification, you can connect source documents to a census
+                year from the <strong>Collect Census Images</strong> page. These files are not saved
+                inside Census Notebook. They are copied to a local Sources folder that you create and choose.
+              </p>
               <p>Supported formats:</p>
               <ul>
                 <li>JPG.</li>
                 <li>PNG.</li>
                 <li>PDF.</li>
               </ul>
-              <p>These attachments let you quickly return to the original census images or documents.</p>
+              <p>
+                Keep that Sources folder with your other genealogy files and include it in your
+                normal backup routine.
+              </p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -1644,6 +3193,422 @@ export default function App() {
                 <li>Copy/paste or import it back into Census Notebook.</li>
               </ul>
               <p>This is especially helpful if you prefer doing data entry offline or in bulk.</p>
+              <p>
+                <strong>Hint:</strong> You can create a custom template for an existing census year
+                when you are having issues matching the provided fields.
+              </p>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/import-scope") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>How Much Census Data Should You Import?</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Choose the amount of data that matches your research goal</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              When working with census records, one of the first decisions you will make is how much
+              data to bring into Census Notebook. There is no single right answer. It depends on
+              what you are trying to learn.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Option 1: Import the Entire Page</h3>
+              <p>You can enter every household on a census page, not just your family.</p>
+              <h4>Why this is useful</h4>
+              <ul>
+                <li>You capture neighbors and nearby families.</li>
+                <li>You can see community patterns.</li>
+                <li>You may discover relatives living nearby, in-laws or extended family, and familiar surnames that repeat across years.</li>
+              </ul>
+              <p><strong>Genealogy tip:</strong> neighbors are often just as important as family.</p>
+              <h4>When to use this approach</h4>
+              <ul>
+                <li>You are trying to break through a brick wall.</li>
+                <li>You suspect family connections nearby.</li>
+                <li>You want to understand the community your ancestors lived in.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Option 2: Import Only Your Family</h3>
+              <p>You can focus on just the household you care about.</p>
+              <h4>Why this is useful</h4>
+              <ul>
+                <li>It keeps your data clean and focused.</li>
+                <li>It makes it easier to track individuals across years.</li>
+                <li>It makes it easier to compare ages, locations, and relationships.</li>
+                <li>It is faster for data entry.</li>
+              </ul>
+              <p><strong>Best fit:</strong> this is ideal when you already know who you are researching.</p>
+              <h4>When to use this approach</h4>
+              <ul>
+                <li>You are building a direct family timeline.</li>
+                <li>You want to quickly analyze one lineage.</li>
+                <li>You do not need surrounding context.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>A Balanced Approach</h3>
+              <p>You do not have to choose just one method.</p>
+              <p>A practical workflow is:</p>
+              <ul>
+                <li>Start by entering your family only.</li>
+                <li>Then expand to include neighbors when needed.</li>
+              </ul>
+              <p>This lets you stay focused while still having the option to dig deeper.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Using Multiple Projects</h3>
+              <p>
+                Census Notebook lets you organize your work into projects, which makes it easy to
+                use both approaches at once.
+              </p>
+              <h4>Example setup</h4>
+              <ul>
+                <li><strong>Project 1: Full Census Pages</strong> contains complete transcriptions for neighborhood and community analysis.</li>
+                <li><strong>Project 2: Direct Family Lines</strong> contains only your ancestors for focused timeline tracking.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Search Across Everything</h3>
+              <p>Even if your data is split across projects, you can:</p>
+              <ul>
+                <li>Search by name.</li>
+                <li>Search by location.</li>
+                <li>View results across all projects.</li>
+              </ul>
+              <p>This gives you both focused research and broader community context.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Why This Matters</h3>
+              <p>The amount of data you import directly affects what you can discover:</p>
+              <ul>
+                <li><strong>More data</strong> gives you more context and unexpected connections.</li>
+                <li><strong>Less data</strong> gives you faster, clearer analysis.</li>
+              </ul>
+              <p>The key is to match your approach to your goal.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Practical Tip</h3>
+              <p>
+                If you are unsure, start small with your family, then expand later. You can always
+                add more data, but starting with everything can feel overwhelming.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Bottom Line</h3>
+              <ul>
+                <li>Import entire pages when you want context.</li>
+                <li>Import individual families when you want focus.</li>
+                <li>Use projects to organize both.</li>
+                <li>Use search to connect everything.</li>
+              </ul>
+              <p>Census Notebook is designed to support both styles, so you can work the way genealogists actually research.</p>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/cleaning-data") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Tips for Cleaning Up Data Before Import</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Prepare your census data before importing</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Before importing census data into Census Notebook, it is worth taking a little time to
+              clean and organize your data. This helps prevent errors, improves search results,
+              reduces frustration, and makes your analysis much more reliable.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>1. Start with the Correct Template</h3>
+              <p>Each census year collects different information.</p>
+              <ul>
+                <li>Download the template for the specific census year you are working with.</li>
+                <li>Open it in your spreadsheet program, such as Excel or Google Sheets.</li>
+              </ul>
+              <p>This ensures your data lines up correctly when you import it.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>2. Convert the Census Image to Text (OCR)</h3>
+              <p>
+                If your census record is an image, you will need to convert it into editable text.
+                This process is called OCR, or Optical Character Recognition.
+              </p>
+              <h4>Common Ways to Convert an Image to Text</h4>
+              <ul>
+                <li><strong>Built-in tools:</strong> Mac Preview or Windows Snipping Tool text actions.</li>
+                <li><strong>Online OCR tools:</strong> upload an image and copy the extracted text.</li>
+                <li><strong>Mobile apps:</strong> scan documents and extract text using your phone.</li>
+                <li><strong>AI transcription tools:</strong> paste the image and ask for structured table output.</li>
+                <li><strong>Manual transcription:</strong> type directly from the image, which is slower but often most accurate for handwritten pages.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>3. Paste Into a Spreadsheet and Clean It</h3>
+              <p>Once you have text, paste it into your template spreadsheet and make sure:</p>
+              <ul>
+                <li>One person is on each row.</li>
+                <li>Each field is in the correct column.</li>
+              </ul>
+              <h4>Things to Fix</h4>
+              <ul>
+                <li>Misspelled names, or keep original spelling but be consistent.</li>
+                <li>Incorrect ages or numbers from OCR errors.</li>
+                <li>Misaligned columns.</li>
+                <li>Extra spaces or line breaks.</li>
+              </ul>
+              <p><strong>Tip:</strong> Census handwriting often confuses OCR, so always review carefully.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>4. Add Location and Page Information</h3>
+              <p>
+                The first column in each template identifies the location where the census occurred.
+                The recommended format for the Location field is:
+              </p>
+              <code style={codeBlockStyle}>State, County, Town/City</code>
+              <p>
+                This will usually be the same for everyone on each census sheet. The page number is
+                also usually the same for everyone on the sheet and is helpful when trying to locate
+                the name on the original document.
+              </p>
+              <p>This step allows you to:</p>
+              <ul>
+                <li>Trace records back to the original source.</li>
+                <li>Group households correctly.</li>
+                <li>Filter by location in Census Notebook.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>5. Keep Data Consistent</h3>
+              <p>Consistency is more important than perfection.</p>
+              <ul>
+                <li>Use the same format for locations, such as <strong>Maine, Cumberland, Falmouth</strong>.</li>
+                <li>Keep abbreviations consistent, such as choosing either <strong>M</strong> or <strong>Male</strong>.</li>
+                <li>Leave unknown values blank, or use a standard value like <strong>[unknown]</strong> or <strong>?</strong>.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>6. Watch for Common OCR Problems</h3>
+              <p>OCR often makes predictable mistakes, such as:</p>
+              <ul>
+                <li><strong>Maine</strong> becoming <strong>Me</strong> or <strong>MaIne</strong>.</li>
+                <li><strong>Farmer</strong> becoming <strong>Fanner</strong>.</li>
+                <li>Numbers being confused, such as <strong>1</strong> and <strong>7</strong>, or <strong>0</strong> and <strong>O</strong>.</li>
+              </ul>
+              <p>Review names, ages, and occupations especially carefully.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>7. Verify Households</h3>
+              <p>Before importing:</p>
+              <ul>
+                <li>Make sure family members are grouped correctly.</li>
+                <li>Check relationship fields, especially in 1880 and later.</li>
+                <li>Confirm no one is accidentally split across rows.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>8. Save and Import</h3>
+              <p>When your data looks correct:</p>
+              <ul>
+                <li>Save your spreadsheet, export it as CSV, and import it into Census Notebook.</li>
+                <li>Or copy and paste into the paste box, then click <strong>Paste Data into Template</strong>.</li>
+              </ul>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/sources-attachments") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Sources & Attachments</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Keep census images in your own source folder</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Census Notebook is designed to keep your data local. Large source images and PDFs are
+              best stored in a folder on your own computer, external drive, or cloud folder that you control.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Create a Sources Folder</h3>
+              <p>Create one folder for census source files, then organize it by year and place.</p>
+              <p>
+                <strong>Folder pattern:</strong>{" "}
+                <code style={{ background: "#dbeafe", color: "#1e3a8a", padding: "4px 8px", borderRadius: "6px", fontWeight: "700" }}>
+                  Sources / Year / State / County / Town
+                </code>
+              </p>
+              <code style={codeBlockStyle}>{`Census Notebook Sources/
+  1920/
+    Maine/
+      Cumberland/
+        Standish/`}</code>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Name Files Consistently</h3>
+              <p>Use a filename that starts with the census year and location, then add the person or household name.</p>
+              <code style={codeBlockStyle}>{`1920-Maine-Cumberland-Standish-Fuller-Alvin.jpg
+1920-Maine-Cumberland-Standish-Fuller-Alvin-page-12.pdf`}</code>
+              <p>
+                The Collect Census Images page shows a suggested filename based on the year, place,
+                and person details you enter.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Attach Files While You Work</h3>
+              <p>
+                On the Collect Census Images page, click <strong>Choose Sources Folder</strong>, then use{" "}
+                <strong>Attach Images/PDFs</strong>. Census Notebook copies each selected file into
+                that folder structure and renames it using the suggested source filename.
+              </p>
+              <ul>
+                <li>Supported formats: JPG, PNG, and PDF.</li>
+                <li>If a filename already exists, Census Notebook adds a number such as <strong>-2</strong>.</li>
+                <li>Include your source folder in your normal backup routine.</li>
+                <li>This folder access works in browsers that support local folder permissions, such as Chrome or Edge.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Why Store Images Outside the App?</h3>
+              <ul>
+                <li>Census images and PDFs can be very large.</li>
+                <li>Your app backups stay smaller and easier to move.</li>
+                <li>You can sync source files with iCloud, Dropbox, Google Drive, or an external drive.</li>
+                <li>You remain in control of your own records and files.</li>
+              </ul>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/known-limitations") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Known Limitations</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>What to know before relying on Census Notebook</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Census Notebook is local-first, which keeps your research private, but it also means
+              you are responsible for backups and source-file organization.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Local Storage Is Device-Specific</h3>
+              <ul>
+                <li>Your project data is stored on the device and browser you are using.</li>
+                <li>Using a different browser or computer will not automatically show the same data.</li>
+                <li>Clearing browser data can remove your Census Notebook data.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Backups Are Your Responsibility</h3>
+              <ul>
+                <li>Use <strong>Export Backup</strong> regularly.</li>
+                <li>Keep backup files somewhere safe, such as an external drive or cloud folder.</li>
+                <li>Use <strong>Import Backup</strong> to restore data on another browser or device.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Source Images Are Separate</h3>
+              <ul>
+                <li>App backups do not include census images or PDFs.</li>
+                <li>Source files are copied to the Sources folder you choose.</li>
+                <li>Back up your Sources folder separately from your app data backup.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Folder Saving Depends on the Browser</h3>
+              <ul>
+                <li>Choosing a local Sources folder requires browser support for local folder permissions.</li>
+                <li>This works best in Chrome or Edge on HTTPS or localhost.</li>
+                <li>Some browsers may only allow previewing files, not copying them into a folder.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Analysis Depends on Entered Fields</h3>
+              <ul>
+                <li>Person Timeline, Neighbors, and Household depend on consistent names and fields.</li>
+                <li>Neighbors works best when rows are imported in census page order.</li>
+                <li>Dwelling and family number analysis depends on those fields being present.</li>
+                <li>OCR or AI transcription may contain errors that need manual review.</li>
+              </ul>
             </section>
           </article>
           <CopyrightFooter />
@@ -1923,10 +3888,10 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
         <header style={headerStyle}>
           <h1 style={{ fontSize: "56px", margin: "10px 0 20px" }}>Census Notebook</h1>
           <div style={{ maxWidth: "900px", margin: "0 auto", color: "#4b5563", fontSize: "20px", lineHeight: 1.5 }}>
-            <p>Census Notebook can be used to track US census data for genealogy projects.</p>
+            <p>Census Notebook helps you track US census data for genealogy projects.</p>
             <p>
-              This tool can connect to a FastAPI and PostgreSQL backend, with browser storage
-              available while local services are offline.
+              Census Notebook does not save your data. You can export and import backups when you
+              want to move or protect your work.
             </p>
             <p>You can bookmark specific people, search, and analyze across multiple projects and years.</p>
           </div>
@@ -1949,7 +3914,10 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                 <a style={navLinkStyle} href="#projects">Create a New Project</a>
                 <a style={navLinkStyle} href="#templates">Select a Census Template</a>
                 <a style={navLinkStyle} href="#add-record">Add a Record</a>
-                <a style={navLinkStyle} href="#search">Search and Analyze</a>
+                <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
+                <a style={navLinkStyle} href="#/project-data">View Project Data</a>
+                <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
+                <a style={navLinkStyle} href="#/favorites">Favorites</a>
                 <a style={navLinkStyle} href="#/help">Help</a>
               </div>
             </nav>
@@ -1998,12 +3966,32 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
             <section style={cardStyle}>
               <h2 style={sectionTitleStyle}>Analysis</h2>
-              <a
-                href="#/analysis/person-timeline"
-                style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
-              >
-                Person Timeline
-              </a>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <a
+                  href="#/analysis/person-timeline"
+                  style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
+                >
+                  Person Timeline
+                </a>
+                <a
+                  href="#/analysis/neighbors"
+                  style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
+                >
+                  Neighbors
+                </a>
+                <a
+                  href="#/analysis/household"
+                  style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
+                >
+                  Household
+                </a>
+                <a
+                  href="#/analysis/duplicates"
+                  style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
+                >
+                  Duplicates
+                </a>
+              </div>
             </section>
           </aside>
 
@@ -2086,12 +4074,22 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                   <input
                     value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setSearchResultsCleared(false);
+                    }}
                     placeholder="Search name, place, note, project..."
                     style={{ ...inputStyle, minWidth: "280px" }}
                   />
 
-                  <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} style={inputStyle}>
+                  <select
+                    value={yearFilter}
+                    onChange={(e) => {
+                      setYearFilter(e.target.value);
+                      setSearchResultsCleared(false);
+                    }}
+                    style={inputStyle}
+                  >
                     <option value="all">All years</option>
                     {years.map((year) => (
                       <option key={year} value={year}>{year}</option>
@@ -2102,15 +4100,32 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                     <input
                       type="checkbox"
                       checked={showBookmarkedOnly}
-                      onChange={(e) => setShowBookmarkedOnly(e.target.checked)}
+                      onChange={(e) => {
+                        setShowBookmarkedOnly(e.target.checked);
+                        setSearchResultsCleared(false);
+                      }}
                     />
                     Bookmarked
                   </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery("");
+                      setYearFilter("all");
+                      setShowBookmarkedOnly(false);
+                      setSearchResultsCleared(true);
+                      cancelEditingSearchRecord();
+                    }}
+                    style={lightButtonStyle}
+                  >
+                    Clear Results
+                  </button>
                 </div>
               </div>
 
               <div style={{ overflowX: "auto", marginTop: "18px" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "14px" }}>
                   <thead>
                     <tr style={{ background: "#f3f4f6" }}>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
@@ -2118,49 +4133,134 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Household</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Actions</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                     </tr>
                   </thead>
 
                   <tbody>
-                    {filteredRecords.map((record) => (
-                      <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.household}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.notes}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                            <button
-                              onClick={() => updateRecord(record.projectId, record.id, { bookmarked: !record.bookmarked })}
-                              style={lightButtonStyle}
-                            >
-                              {record.bookmarked ? "★" : "☆"}
-                            </button>
-                            <button
-                              onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
-                              style={lightButtonStyle}
-                            >
-                              Highlight
-                            </button>
-                            <button
-                              onClick={() => deleteRecord(record.projectId, record.id)}
-                              style={{ ...lightButtonStyle, color: "#dc2626" }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {visibleSearchRecords.map((record) => {
+                      const isEditing = editingSearchRecordId === record.id;
 
-                    {filteredRecords.length === 0 && (
+                      return (
+                        <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.year}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, year: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "90px" }}
+                              />
+                            ) : (
+                              record.year
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.name}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, name: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "180px" }}
+                              />
+                            ) : (
+                              <a
+                                href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                style={{ color: "#1d4ed8", textDecoration: "none" }}
+                              >
+                                {record.name || "Unnamed record"}
+                              </a>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.location}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, location: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "160px" }}
+                              />
+                            ) : (
+                              record.location
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.household}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "160px" }}
+                              />
+                            ) : (
+                              record.household
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => saveEditingSearchRecord(record.projectId, record.id)}
+                                    style={buttonStyle}
+                                  >
+                                    Save
+                                  </button>
+                                  <button onClick={cancelEditingSearchRecord} style={lightButtonStyle}>
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingSearchRecord(record)}
+                                    aria-label="Edit record"
+                                    title="Edit"
+                                    style={actionButtonStyle}
+                                  >
+                                    ✎
+                                  </button>
+                                  <button
+                                    onClick={() => updateRecord(record.projectId, record.id, { bookmarked: !record.bookmarked })}
+                                    aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
+                                    title={record.bookmarked ? "Remove favorite" : "Favorite"}
+                                    style={actionButtonStyle}
+                                  >
+                                    {record.bookmarked ? "★" : "☆"}
+                                  </button>
+                                  <button
+                                    onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                    aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
+                                    title={record.highlighted ? "Remove highlight" : "Highlight"}
+                                    style={highlightActionButtonStyle(record.highlighted)}
+                                  >
+                                    H
+                                  </button>
+                                  <button
+                                    onClick={() => deleteRecord(record.projectId, record.id)}
+                                    aria-label="Delete record"
+                                    title="Delete"
+                                    style={{ ...actionButtonStyle, color: "#dc2626" }}
+                                  >
+                                    X
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {visibleSearchRecords.length === 0 && (
                       <tr>
-                        <td colSpan="7" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
-                          No records found.
+                        <td colSpan="6" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                          {searchResultsCleared ? "Search results cleared." : "No records found."}
                         </td>
                       </tr>
                     )}
@@ -2171,8 +4271,22 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
             <section style={cardStyle}>
               <h2 style={sectionTitleStyle}>Backup</h2>
-              <p style={{ color: "#4b5563" }}>Export your current client-side data as a JSON backup file.</p>
-              <button onClick={exportJson} style={buttonStyle}>Export Backup</button>
+              <p style={{ color: "#4b5563" }}>
+                Export or import your local Census Notebook data as a JSON backup file.
+              </p>
+              <p style={{ color: "#92400e", fontWeight: "700" }}>
+                Your data is stored on this device. Export backups regularly.
+              </p>
+              <p style={{ color: "#4b5563", fontSize: "14px" }}>
+                After exporting, check your Downloads folder for the backup file.
+              </p>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                <button onClick={exportJson} style={buttonStyle}>Export Backup</button>
+                <label style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px" }}>
+                  Import Backup
+                  <input type="file" accept=".json,application/json" onChange={importBackupFile} style={{ display: "none" }} />
+                </label>
+              </div>
             </section>
           </section>
         </main>
