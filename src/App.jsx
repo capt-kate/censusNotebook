@@ -462,6 +462,7 @@ function CensusTemplatePage({
   activeProject,
   onImportRows,
   onRenameTemplate,
+  onViewRecordsByYear,
   pageStyle,
   shellStyle,
   headerStyle,
@@ -679,6 +680,13 @@ function CensusTemplatePage({
                 Clear Paste Box
               </button>
               <button onClick={importRows} disabled={!activeProject} style={lightButtonStyle}>Add Filled Rows to Project</button>
+              <a
+                href="#/records-by-year"
+                onClick={() => onViewRecordsByYear(template.year)}
+                style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+              >
+                View Records by Year
+              </a>
             </div>
           </div>
 
@@ -1994,6 +2002,7 @@ export default function App() {
           activeProject={activeProject}
           onImportRows={importTemplateRows}
           onRenameTemplate={renameCustomTemplate}
+          onViewRecordsByYear={setRecordsByYearSelection}
           pageStyle={pageStyle}
           shellStyle={shellStyle}
           headerStyle={headerStyle}
