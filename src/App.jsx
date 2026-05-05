@@ -655,7 +655,6 @@ function CensusTemplatePage({
                 Import CSV
                 <input type="file" accept=".csv,.txt" onChange={importCsvFile} style={{ display: "none" }} />
               </label>
-              <button onClick={importRows} disabled={!activeProject} style={lightButtonStyle}>Add Filled Rows to Project</button>
             </div>
           </div>
 
@@ -679,6 +678,7 @@ function CensusTemplatePage({
               <button onClick={() => setPastedTemplateText("")} disabled={!pastedTemplateText} style={lightButtonStyle}>
                 Clear Paste Box
               </button>
+              <button onClick={importRows} disabled={!activeProject} style={lightButtonStyle}>Add Filled Rows to Project</button>
             </div>
           </div>
 
