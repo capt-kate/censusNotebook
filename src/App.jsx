@@ -3890,8 +3890,9 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
           <div style={{ maxWidth: "900px", margin: "0 auto", color: "#4b5563", fontSize: "20px", lineHeight: 1.5 }}>
             <p>Census Notebook helps you track US census data for genealogy projects.</p>
             <p>
-              Census Notebook does not save your data. You can export and import backups when you
-              want to move or protect your work.
+              Census Notebook does not collect your data to the cloud. All your work is saved on
+              your local machine. You can export and import backups when you want to move or protect
+              your work.
             </p>
             <p>You can bookmark specific people, search, and analyze across multiple projects and years.</p>
           </div>
