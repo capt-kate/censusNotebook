@@ -641,16 +641,16 @@ function CensusTemplatePage({
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start", flexDirection: "column" }}>
             <div>
               <h2 style={{ margin: 0 }}>Paste or enter census rows</h2>
               <p style={{ color: "#4b5563", margin: "6px 0 0" }}>
                 Import target: {activeProject?.name || "select or create a project first"}
               </p>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-start" }}>
               <button onClick={addBlankRows} style={lightButtonStyle}>Add Rows</button>
-              <button onClick={clearRows} style={lightButtonStyle}>Clear</button>
+              <button onClick={clearRows} style={lightButtonStyle}>Clear All</button>
               <label style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px" }}>
                 Import CSV
                 <input type="file" accept=".csv,.txt" onChange={importCsvFile} style={{ display: "none" }} />
@@ -3132,7 +3132,7 @@ export default function App() {
               <h3>Clearing the Template</h3>
               <p>To remove all current data:</p>
               <ul>
-                <li>Click <strong>Clear</strong>.</li>
+                <li>Click <strong>Clear All</strong>.</li>
               </ul>
               <p>
                 <strong>Warning:</strong> This action cannot be undone. Make sure you want to remove
