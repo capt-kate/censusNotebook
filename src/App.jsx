@@ -606,7 +606,7 @@ function CensusTemplatePage({
           </div>
           <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px", flexWrap: "wrap" }}>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
             <a
               href={template.sourceWorkbook}
@@ -898,7 +898,7 @@ function SourceImageCollectionPage({
           </p>
           <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Collect Census Images</h1>
           <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-            Back to Census Notebook
+            Back to Home
           </a>
         </header>
 
@@ -1922,7 +1922,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Create Template</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2014,7 +2014,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>{templateYear} Census</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2069,7 +2069,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Records by Year</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2171,7 +2171,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Favorite Records</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2265,7 +2265,7 @@ export default function App() {
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>All Census Data by Project</h1>
             <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
               <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-                Back to Census Notebook
+                Back to Home
               </a>
             </div>
           </header>
@@ -2395,7 +2395,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Census Notebook Help</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2478,7 +2478,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Person Timeline</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2599,7 +2599,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Neighbors</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2742,7 +2742,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Household</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
@@ -2885,7 +2885,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Duplicates</h1>
             <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Census Notebook
+              Back to Home
             </a>
           </header>
 
