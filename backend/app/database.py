@@ -1,16 +1,19 @@
 import os
 from collections.abc import Generator
+from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
+BACKEND_DIR = Path(__file__).resolve().parents[1]
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql+psycopg://census:census@localhost:5432/census_notebook",
+    f"sqlite:///{BACKEND_DIR / 'census_notebook.db'}",
 )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 

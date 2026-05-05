@@ -17,6 +17,8 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+backend/*.db
+backend/*.db-*
 backend/uploads/
 .env
 
