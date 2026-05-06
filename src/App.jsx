@@ -679,7 +679,13 @@ function CensusTemplatePage({
               <button onClick={() => setPastedTemplateText("")} disabled={!pastedTemplateText} style={lightButtonStyle}>
                 Clear Paste Box
               </button>
-              <button onClick={importRows} disabled={!activeProject} style={buttonStyle}>Add Filled Rows to Project</button>
+              <button
+                onClick={importRows}
+                disabled={!activeProject}
+                style={activeProject ? buttonStyle : { ...buttonStyle, cursor: "not-allowed", opacity: 0.55 }}
+              >
+                Add Filled Rows to Project
+              </button>
               <a
                 href="#/records-by-year"
                 onClick={() => onViewRecordsByYear(template.year)}
