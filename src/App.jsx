@@ -5,7 +5,6 @@ import {
   censusTemplateYears,
   getTemplateIdForYear,
 } from "./templates/censusTemplates";
-import starterData from "./starterData.json";
 
 const STORAGE_KEY = "census-notebook-v1";
 const CUSTOM_TEMPLATES_KEY = "census-notebook-custom-templates-v1";
@@ -13,17 +12,23 @@ const INDEXED_DB_NAME = "census-notebook-local-data";
 const INDEXED_DB_STORE = "app-state";
 const INDEXED_DB_DATA_KEY = "projects";
 const API_ENABLED = import.meta.env.VITE_ENABLE_API === "true";
+const emptyData = { activeProjectId: "", projects: [] };
 
 function uid(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function loadData() {
+async function loadStarterData() {
+  const starterDataModule = await import("./starterData.json");
+  return starterDataModule.default;
+}
+
+function loadLocalStorageData() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : starterData;
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return starterData;
+    return null;
   }
 }
 
@@ -95,12 +100,13 @@ async function loadStoredData() {
     const indexedData = await readLocalDatabaseData();
     if (indexedData) return indexedData;
 
-    const localStorageData = loadData();
-    await writeLocalDatabaseData(localStorageData);
+    const localStorageData = loadLocalStorageData();
+    const data = localStorageData || await loadStarterData();
+    await writeLocalDatabaseData(data);
     localStorage.removeItem(STORAGE_KEY);
-    return localStorageData;
+    return data;
   } catch {
-    return loadData();
+    return loadLocalStorageData() || await loadStarterData();
   }
 }
 
@@ -1055,7 +1061,7 @@ function SourceImageCollectionPage({
 }
 
 export default function App() {
-  const [data, setData] = useState(loadData);
+  const [data, setData] = useState(() => loadLocalStorageData() || emptyData);
   const [dataStorageReady, setDataStorageReady] = useState(API_ENABLED);
   const [currentPage, setCurrentPage] = useState(window.location.hash || "#/");
   const [apiConnected, setApiConnected] = useState(false);
