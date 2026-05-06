@@ -289,6 +289,35 @@ function getNoteValue(notes, labels) {
   return "";
 }
 
+function updateNoteValue(notes, labels, fallbackLabel, value) {
+  const cleanedValue = String(value || "").trim();
+  const lowerLabels = labels.map((label) => label.toLowerCase());
+  const parts = String(notes || "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  let didUpdate = false;
+
+  const updatedParts = parts
+    .map((part) => {
+      const separatorIndex = part.indexOf(":");
+      if (separatorIndex === -1) return part;
+
+      const label = part.slice(0, separatorIndex).trim();
+      if (!lowerLabels.includes(label.toLowerCase())) return part;
+
+      didUpdate = true;
+      return cleanedValue ? `${label}: ${cleanedValue}` : "";
+    })
+    .filter(Boolean);
+
+  if (!didUpdate && cleanedValue) {
+    updatedParts.push(`${fallbackLabel}: ${cleanedValue}`);
+  }
+
+  return updatedParts.join("; ");
+}
+
 function getRecordDetail(record, labels) {
   return getNoteValue(`${record.notes || ""}; ${record.household || ""}`, labels);
 }
@@ -312,6 +341,10 @@ function getRecordPageNumber(record) {
 
 function getRecordLineNumber(record) {
   return getRecordDetail(record, ["Line", "Line Number", "Line #"]);
+}
+
+function getRecordBirthYear(record) {
+  return getRecordDetail(record, ["Birth Year", "Estimated Birth Year", "Year of Birth", "Birth"]);
 }
 
 function getRecordSurname(record) {
@@ -1101,6 +1134,7 @@ export default function App() {
   const [editingSearchRecordDraft, setEditingSearchRecordDraft] = useState({
     year: "",
     name: "",
+    birthYear: "",
     location: "",
     household: "",
     notes: "",
@@ -1643,6 +1677,7 @@ export default function App() {
     setEditingSearchRecordDraft({
       year: record.year || "",
       name: record.name || "",
+      birthYear: getRecordBirthYear(record),
       location: record.location || "",
       household: record.household || "",
       notes: record.notes || "",
@@ -1654,6 +1689,7 @@ export default function App() {
     setEditingSearchRecordDraft({
       year: "",
       name: "",
+      birthYear: "",
       location: "",
       household: "",
       notes: "",
@@ -1661,7 +1697,11 @@ export default function App() {
   }
 
   async function saveEditingSearchRecord(projectId, recordId) {
-    await updateRecord(projectId, recordId, editingSearchRecordDraft);
+    const { birthYear, ...recordDraft } = editingSearchRecordDraft;
+    await updateRecord(projectId, recordId, {
+      ...recordDraft,
+      notes: updateNoteValue(recordDraft.notes, ["Birth Year", "Estimated Birth Year", "Year of Birth", "Birth"], "Birth Year", birthYear),
+    });
     cancelEditingSearchRecord();
   }
 
@@ -2545,11 +2585,12 @@ export default function App() {
                 </div>
 
                 <div style={{ overflowX: "auto", marginTop: "14px" }}>
-                  <table style={{ width: "100%", minWidth: "980px", borderCollapse: "collapse", fontSize: "14px" }}>
+                  <table style={{ width: "100%", minWidth: "1060px", borderCollapse: "collapse", fontSize: "14px" }}>
                     <thead>
                       <tr style={{ background: "#f3f4f6" }}>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Year</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Page</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
@@ -2594,6 +2635,19 @@ export default function App() {
                                 />
                               ) : (
                                 record.name
+                              )}
+                            </td>
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {isEditing ? (
+                                <input
+                                  value={editingSearchRecordDraft.birthYear}
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({ ...prev, birthYear: event.target.value }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "110px" }}
+                                />
+                              ) : (
+                                getRecordBirthYear(record) || "N/A"
                               )}
                             </td>
                             <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
@@ -2693,7 +2747,7 @@ export default function App() {
 
                       {project.records.length === 0 && (
                         <tr>
-                          <td colSpan="6" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                          <td colSpan="7" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
                             No records in this project yet.
                           </td>
                         </tr>
