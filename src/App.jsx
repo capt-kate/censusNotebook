@@ -1897,10 +1897,11 @@ export default function App() {
 
   const actionButtonStyle = {
     ...lightButtonStyle,
-    width: "40px",
-    height: "40px",
+    width: "30px",
+    height: "30px",
     padding: 0,
-    fontSize: "18px",
+    borderRadius: "8px",
+    fontSize: "15px",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
@@ -2248,35 +2249,124 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {favoriteRecords.map((record) => (
-                      <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
-                          {record.name || "Unnamed record"}
-                        </td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.household}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
-                        <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
-                          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                            <a
-                              href={`#/project-data?project=${record.projectId}&record=${record.id}`}
-                              style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
-                            >
-                              View
-                            </a>
-                            <button
-                              onClick={() => updateRecord(record.projectId, record.id, { bookmarked: false })}
-                              aria-label="Remove favorite"
-                              title="Remove favorite"
-                              style={actionButtonStyle}
-                            >
-                              ★
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {favoriteRecords.map((record) => {
+                      const isEditing = editingSearchRecordId === record.id;
+
+                      return (
+                        <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.year}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, year: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "90px" }}
+                              />
+                            ) : (
+                              record.year
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.name}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, name: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "180px" }}
+                              />
+                            ) : (
+                              <a
+                                href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                style={{ color: "#1d4ed8", textDecoration: "none" }}
+                              >
+                                {record.name || "Unnamed record"}
+                              </a>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.location}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, location: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "160px" }}
+                              />
+                            ) : (
+                              record.location
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.household}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "160px" }}
+                              />
+                            ) : (
+                              record.household
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => saveEditingSearchRecord(record.projectId, record.id)}
+                                    style={buttonStyle}
+                                  >
+                                    Save
+                                  </button>
+                                  <button onClick={cancelEditingSearchRecord} style={lightButtonStyle}>
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingSearchRecord(record)}
+                                    aria-label="Edit record"
+                                    title="Edit"
+                                    style={actionButtonStyle}
+                                  >
+                                    ✎
+                                  </button>
+                                  <button
+                                    onClick={() => updateRecord(record.projectId, record.id, { bookmarked: false })}
+                                    aria-label="Remove favorite"
+                                    title="Remove favorite"
+                                    style={actionButtonStyle}
+                                  >
+                                    ★
+                                  </button>
+                                  <button
+                                    onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                    aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
+                                    title={record.highlighted ? "Remove highlight" : "Highlight"}
+                                    style={highlightActionButtonStyle(record.highlighted)}
+                                  >
+                                    H
+                                  </button>
+                                  <button
+                                    onClick={() => deleteRecord(record.projectId, record.id)}
+                                    aria-label="Delete record"
+                                    title="Delete"
+                                    style={{ ...actionButtonStyle, color: "#dc2626" }}
+                                  >
+                                    X
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
 
                     {favoriteRecords.length === 0 && (
                       <tr>
@@ -3156,13 +3246,19 @@ export default function App() {
 
             <section style={helpSectionStyle}>
               <h3>Ways to use it</h3>
+              <p>
+                Currently, Census Notebook runs in a web browser. No installation is required.
+              </p>
+              <p>It should work in modern versions of:</p>
               <ul>
-                <li>Run it directly in your web browser, with no installation required.</li>
-                <li>Or download it as a standalone desktop app for Windows or Mac.</li>
+                <li>Google Chrome</li>
+                <li>Microsoft Edge</li>
+                <li>Mozilla Firefox</li>
+                <li>Safari</li>
               </ul>
               <p>
-                Even though it can run in a browser, your data is not stored in the cloud unless you
-                choose to export it yourself.
+                For features that copy files into a local Sources folder, Chrome or Edge may provide
+                the best support because they include stronger local folder permissions.
               </p>
             </section>
 
@@ -3205,7 +3301,7 @@ export default function App() {
               <p>Census Notebook is designed around how genealogists actually work.</p>
               <ul>
                 <li>Private, local-first data storage.</li>
-                <li>Flexible access in a browser or desktop app.</li>
+                <li>Flexible access in a modern web browser.</li>
                 <li>Tools to help you see patterns, not just store records.</li>
               </ul>
             </section>
