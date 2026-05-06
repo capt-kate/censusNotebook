@@ -2644,27 +2644,25 @@ export default function App() {
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Place</th>
-                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {personTimelineResults.map((record) => (
                           <tr key={`${record.projectId}-${record.id}`}>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
-                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name}</td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                              <a
+                                href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                style={{ color: "#1d4ed8", textDecoration: "none" }}
+                              >
+                                {record.name || "Unnamed record"}
+                              </a>
+                            </td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Age"]) || "N/A"}</td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.location || "N/A"}</td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}</td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
                               {getNoteValue(record.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "N/A"}
-                            </td>
-                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                              <a
-                                href={`#/project-data?project=${record.projectId}&record=${record.id}`}
-                                style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px", textDecoration: "none" }}
-                              >
-                                View
-                              </a>
                             </td>
                           </tr>
                         ))}
@@ -3051,28 +3049,26 @@ export default function App() {
                             <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Dwelling</th>
                             <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Family</th>
                             <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
-                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Action</th>
                           </tr>
                         </thead>
                         <tbody>
                           {group.records.map((record) => (
                             <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name || "Unnamed record"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                                <a
+                                  href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                  style={{ color: "#1d4ed8", textDecoration: "none" }}
+                                >
+                                  {record.name || "Unnamed record"}
+                                </a>
+                              </td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordPageNumber(record) || "N/A"}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordLineNumber(record) || "N/A"}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordDwellingNumber(record) || "N/A"}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordFamilyNumber(record) || "N/A"}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                <a
-                                  href={`#/project-data?project=${record.projectId}&record=${record.id}`}
-                                  style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
-                                >
-                                  View
-                                </a>
-                              </td>
                             </tr>
                           ))}
                         </tbody>
