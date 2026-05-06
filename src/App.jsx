@@ -2635,6 +2635,13 @@ export default function App() {
             <section style={{ ...cardStyle, padding: "28px" }}>
               <h2 style={{ ...sectionTitleStyle, fontSize: "28px" }}>Topics</h2>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "14px" }}>
+                <a href="#/help/getting-started" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>Getting Started</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Create a project, add census data, then use analysis tools to find patterns.
+                  </span>
+                </a>
                 <a href="#/help/how-it-works" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
                   <strong>How Census Notebook works</strong>
                   <br />
@@ -3304,6 +3311,61 @@ export default function App() {
                 <li>Flexible access in a modern web browser.</li>
                 <li>Tools to help you see patterns, not just store records.</li>
               </ul>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/getting-started") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Getting Started</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>A simple workflow for census research</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Start by creating a project, bring in cleaned census data, then use the analysis tools
+              to compare people, households, neighbors, and possible duplicates.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>1. Create a Project</h3>
+              <p>
+                Projects keep related research together. You might create a project for a surname,
+                family branch, location, or research question.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>2. Find and Add Census Data</h3>
+              <p>
+                Find census data online or in your own files, clean it up, then import a CSV or paste
+                rows into the matching census template.
+              </p>
+              <p>
+                Cleaning the data first helps names, locations, page numbers, and household details
+                line up correctly when you search or analyze later.
+              </p>
+            </section>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>3. Analyze the Data</h3>
+              <p>
+                Once records are saved, use the analysis pages to follow a person through time, review
+                household members, compare nearby households, and check for possible duplicate records.
+              </p>
             </section>
           </article>
           <CopyrightFooter />
@@ -4223,13 +4285,14 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
         <header style={headerStyle}>
           <h1 style={{ fontSize: "56px", margin: "10px 0 20px" }}>Census Notebook</h1>
           <div style={{ maxWidth: "900px", margin: "0 auto", color: "#4b5563", fontSize: "20px", lineHeight: 1.5 }}>
-            <p>Census Notebook helps you track US census data for genealogy projects.</p>
             <p>
-              Census Notebook does not collect your data to the cloud. All your work is saved on
-              your local machine. You can export and import backups when you want to move or protect
-              your work.
+              Census Notebook helps you turn scattered census records into
+              <br />
+              organized, searchable timelines for genealogy research.
             </p>
-            <p>You can bookmark specific people, search, and analyze across multiple projects and years.</p>
+            <p>
+              Census Notebook does not collect your data to the cloud.
+            </p>
           </div>
           <p style={{ marginTop: "16px", color: apiConnected ? "#047857" : "#92400e", fontWeight: "700" }}>
             {statusMessage}
