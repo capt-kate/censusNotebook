@@ -5,6 +5,7 @@ import {
   censusTemplateYears,
   getTemplateIdForYear,
 } from "./templates/censusTemplates";
+import starterData from "./starterData.json";
 
 const STORAGE_KEY = "census-notebook-v1";
 const CUSTOM_TEMPLATES_KEY = "census-notebook-custom-templates-v1";
@@ -12,39 +13,6 @@ const INDEXED_DB_NAME = "census-notebook-local-data";
 const INDEXED_DB_STORE = "app-state";
 const INDEXED_DB_DATA_KEY = "projects";
 const API_ENABLED = import.meta.env.VITE_ENABLE_API === "true";
-
-const starterData = {
-  activeProjectId: "project-1",
-  projects: [
-    {
-      id: "project-1",
-      name: "Sample Census Project",
-      createdAt: new Date().toISOString(),
-      records: [
-        {
-          id: "record-1",
-          year: "1900",
-          name: "Hartley Fuller Dame",
-          location: "Massachusetts",
-          household: "Dame household",
-          notes: "Sample record. Replace with your own census entry.",
-          bookmarked: true,
-          highlighted: false,
-        },
-        {
-          id: "record-2",
-          year: "1910",
-          name: "Hartley F. Dame",
-          location: "California",
-          household: "Possible match",
-          notes: "Check age, parents, and birthplace before confirming.",
-          bookmarked: false,
-          highlighted: true,
-        },
-      ],
-    },
-  ],
-};
 
 function uid(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
