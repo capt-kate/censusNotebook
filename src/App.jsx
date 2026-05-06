@@ -4681,10 +4681,10 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               <h2 style={sectionTitleStyle}>Tasks</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <a style={navLinkStyle} href="#projects">Create a New Project</a>
-                <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
                 <a style={navLinkStyle} href="#/project-data">View Records by Project</a>
                 <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
                 <a style={navLinkStyle} href="#/favorites">View Favorites</a>
+                <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
                 <a style={navLinkStyle} href="#/help">Help</a>
               </div>
             </nav>
