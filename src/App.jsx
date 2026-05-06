@@ -1004,6 +1004,9 @@ function SourceImageCollectionPage({
               <p style={{ margin: "8px 0 0" }}>
                 This makes your source files easier to find later outside the app.
               </p>
+              <p style={{ margin: "8px 0 0" }}>
+                Leave any field blank if you do not want to include that value in the folder path or filename.
+              </p>
             </div>
 
             {collectedFiles.length > 0 && (
