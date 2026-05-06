@@ -911,13 +911,22 @@ function SourceImageCollectionPage({
             Sources
           </p>
           <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Collect Census Images</h1>
-          <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-            Back to Home
-          </a>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Home
+            </a>
+            <a href="#/help/sources-attachments" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Sources & Attachments Help
+            </a>
+          </div>
         </header>
 
         <main style={{ maxWidth: "980px", margin: "0 auto", textAlign: "left" }}>
           <section style={cardStyle}>
+            <p style={{ margin: "0 0 12px", color: "#4b5563", lineHeight: 1.6 }}>
+              Use this page to choose a local Sources folder, enter the census year and location,
+              then copy census images or PDFs into that folder with a consistent filename.
+            </p>
             <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", color: "#374151" }}>
               <div style={{ display: "flex", gap: "8px", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
                 <div style={{ fontSize: "13px" }}>
@@ -942,6 +951,9 @@ function SourceImageCollectionPage({
                   </label>
                 </div>
               </div>
+              <p style={{ margin: "10px 0 0", fontSize: "13px", color: "#4b5563" }}>
+                Images and PDFs are saved locally in the Sources folder you designate. They are not uploaded to Census Notebook or the cloud.
+              </p>
               <p style={{ margin: "10px 0 0", fontSize: "13px" }}>
                 Sources folder: <strong>{sourceDirectoryName || "not selected"}</strong>
               </p>
@@ -971,6 +983,27 @@ function SourceImageCollectionPage({
                   />
                 </label>
               ))}
+            </div>
+
+            <div style={{ marginTop: "12px", color: "#4b5563", fontSize: "14px", lineHeight: 1.6 }}>
+              <p style={{ margin: 0 }}>
+                These fields are used to build the folder path and filename for the census image or PDF you are saving.
+              </p>
+              <p style={{ margin: "8px 0 0" }}>
+                Example: entering <strong>1920</strong>, <strong>Maine</strong>, <strong>Cumberland</strong>,{" "}
+                <strong>Falmouth</strong>, <strong>Smith</strong>, and <strong>John</strong> creates a suggested path like{" "}
+                <code style={{ background: "#eef2ff", padding: "2px 6px", borderRadius: "6px" }}>
+                  Sources / 1920 / Maine / Cumberland / Falmouth
+                </code>{" "}
+                and a filename like{" "}
+                <code style={{ background: "#eef2ff", padding: "2px 6px", borderRadius: "6px" }}>
+                  1920_Maine_Cumberland_Falmouth_Smith_John
+                </code>
+                .
+              </p>
+              <p style={{ margin: "8px 0 0" }}>
+                This makes your source files easier to find later outside the app.
+              </p>
             </div>
 
             {collectedFiles.length > 0 && (
