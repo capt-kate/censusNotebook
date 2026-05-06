@@ -4085,6 +4085,29 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
+              <h3>Ways You Could Lose Data</h3>
+              <p>
+                Census Notebook stores your project data in your browser on the device you are using.
+                This keeps your research private, but it also means you are responsible for protecting
+                your data.
+              </p>
+              <p>You could lose data if you:</p>
+              <ul>
+                <li>Clear browser data, cookies, site data, cache, or history.</li>
+                <li>Use a different browser, browser profile, computer, or device.</li>
+                <li>Work in a private or incognito browser window.</li>
+                <li>Uninstall or reset your browser.</li>
+                <li>Use a computer that automatically clears browser storage.</li>
+                <li>Accidentally delete records or projects.</li>
+                <li>Import an older backup over newer work.</li>
+              </ul>
+              <p>
+                To protect your work, export backups regularly and keep copies somewhere safe, such as
+                your Documents folder, an external drive, or cloud storage you control.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
               <h3>Source Images Are Separate</h3>
               <ul>
                 <li>App backups do not include census images or PDFs.</li>
@@ -4108,7 +4131,7 @@ export default function App() {
                 <li>Person Timeline, Neighbors, and Household depend on consistent names and fields.</li>
                 <li>Neighbors works best when rows are imported in census page order.</li>
                 <li>Dwelling and family number analysis depends on those fields being present.</li>
-                <li>OCR or AI transcription may contain errors that need manual review.</li>
+                <li>OCR or AI transcription will contain errors that require manual review.</li>
               </ul>
             </section>
           </article>
