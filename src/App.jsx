@@ -2318,6 +2318,9 @@ export default function App() {
               <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
                 Back to Home
               </a>
+              <a href="#/help/projects" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+                Projects Help
+              </a>
             </div>
           </header>
 
@@ -2547,6 +2550,13 @@ export default function App() {
                   <br />
                   <span style={{ color: "#4b5563", fontWeight: "400" }}>
                     Learn how local storage, projects, searching, and privacy fit together.
+                  </span>
+                </a>
+                <a href="#/help/projects" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>Working with Projects</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Organize records by surname, place, time period, or family branch.
                   </span>
                 </a>
                 <a href="#/help/census-image-text" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
@@ -3198,6 +3208,91 @@ export default function App() {
                 <li>Flexible access in a browser or desktop app.</li>
                 <li>Tools to help you see patterns, not just store records.</li>
               </ul>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/projects") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Working with Projects</h1>
+            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              Back to Help
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Organize related records together</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Projects are the foundation of how you organize your research in the app. They let
+              you group related records together while still giving you the flexibility to search
+              across everything you have collected.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Create as Many Projects as You Need</h3>
+              <p>
+                You can create unlimited projects to match the way you think about your data. For
+                example, you might:
+              </p>
+              <ul>
+                <li>Create a project for each surname, such as <strong>Dame</strong> or <strong>Dickinson</strong>.</li>
+                <li>Organize by location, such as <strong>Vermont</strong> or <strong>Massachusetts</strong>.</li>
+                <li>Separate research by time period or family branch.</li>
+              </ul>
+              <p>There is no limit. Use whatever structure makes your research easier to manage.</p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Search Across All Projects</h3>
+              <p>
+                Even though your data is organized into projects, you are never locked into just one.
+                You can search:
+              </p>
+              <ul>
+                <li>Within a single project.</li>
+                <li>Across all projects at once.</li>
+              </ul>
+              <p>
+                This makes it easy to spot connections, track individuals across locations, or find
+                missing years in your research.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Switching and Viewing Projects</h3>
+              <p>
+                The currently selected project is displayed on every records view, so you always know
+                where you are working.
+              </p>
+              <p>
+                If needed, you can switch your view to show all data from all projects, giving you a
+                complete picture of your research.
+              </p>
+            </section>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>Deleting a Project</h3>
+              <p>If you no longer need a project, you can remove it:</p>
+              <ul>
+                <li>Use the <strong>Delete Project</strong> button on the Home page.</li>
+                <li>Deleting a project will also permanently remove all records within that project.</li>
+              </ul>
+              <p>
+                Be sure you no longer need the data before deleting, as this action cannot be undone.
+              </p>
+              <p>
+                To save your data, export a backup before deleting the project. You can always reimport later.
+              </p>
             </section>
           </article>
           <CopyrightFooter />
