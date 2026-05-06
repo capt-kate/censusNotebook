@@ -1877,8 +1877,8 @@ export default function App() {
   const buttonStyle = {
     padding: "10px 14px",
     borderRadius: "10px",
-    border: "1px solid #d1d5db",
-    background: "#111827",
+    border: "1px solid rgb(47 68 115)",
+    background: "rgb(47 68 115)",
     color: "white",
     cursor: "pointer",
     fontWeight: "700",
@@ -4460,7 +4460,14 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               </div>
               <a
                 href="#/templates/create"
-                style={{ ...buttonStyle, display: "block", marginTop: "12px", textDecoration: "none", textAlign: "center" }}
+                style={{
+                  ...buttonStyle,
+                  display: "inline-block",
+                  fontSize: "13.3333px",
+                  marginTop: "14px",
+                  textDecoration: "none",
+                  textAlign: "center",
+                }}
               >
                 Create Template
               </a>
