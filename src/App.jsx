@@ -2253,9 +2253,14 @@ export default function App() {
               Records by year
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Records by Year</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
-              Back to Home
-            </a>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+              <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+                Back to Home
+              </a>
+              <a href="#/project-data" style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+                View Project Data
+              </a>
+            </div>
           </header>
 
           <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
@@ -2282,47 +2287,176 @@ export default function App() {
             </section>
 
             <section style={cardStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap", marginBottom: "14px" }}>
+                <h2 style={sectionTitleStyle}>Records</h2>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ color: "#6b7280", fontWeight: "700" }}>Sort by</span>
+                  {sortableColumns.map((column) => (
+                    <button key={column.field} onClick={() => changeRecordsByYearSort(column.field)} style={sortButtonStyle(column.field)}>
+                      {column.label}
+                      {recordsByYearSort.field === column.field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "14px" }}>
+                <table style={{ width: "100%", minWidth: "1160px", borderCollapse: "collapse", fontSize: "14px" }}>
                   <thead>
                     <tr style={{ background: "#f3f4f6" }}>
-                      {sortableColumns.map((column) => (
-                        <th key={column.field} style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                          <button onClick={() => changeRecordsByYearSort(column.field)} style={sortButtonStyle(column.field)}>
-                            {column.label}
-                            {recordsByYearSort.field === column.field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
-                          </button>
-                        </th>
-                      ))}
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Given Name</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Year</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Page</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", minWidth: "230px" }}>Actions</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recordsByYear.map((record) => {
-                      const givenName = getRecordGivenName(record);
+                      const isEditing = editingSearchRecordId === record.id;
 
                       return (
                         <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
-                          {sortableColumns.map((column) => (
-                            <td key={column.field} style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                              {column.value(record) || "N/A"}
-                            </td>
-                          ))}
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.year}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, year: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "90px" }}
+                              />
+                            ) : (
+                              record.year
+                            )}
+                          </td>
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
-                            {givenName || record.name || "Unnamed record"}
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.name}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, name: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "180px" }}
+                              />
+                            ) : (
+                              <a
+                                href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                style={{ color: "#1d4ed8", textDecoration: "none" }}
+                              >
+                                {record.name || "Unnamed record"}
+                              </a>
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.birthYear}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, birthYear: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "110px" }}
+                              />
+                            ) : (
+                              getRecordBirthYear(record) || "N/A"
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.location}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, location: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "160px" }}
+                              />
+                            ) : (
+                              record.location
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.household}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "160px" }}
+                              />
+                            ) : (
+                              record.household
+                            )}
+                          </td>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                            {isEditing ? (
+                              <input
+                                value={editingSearchRecordDraft.notes}
+                                onChange={(event) =>
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, notes: event.target.value }))
+                                }
+                                style={{ ...inputStyle, minWidth: "220px" }}
+                              />
+                            ) : (
+                              record.notes
+                            )}
                           </td>
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
                             {record.projectName}
                           </td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", minWidth: "230px" }}>
-                            <a
-                              href={`#/project-data?project=${record.projectId}&record=${record.id}`}
-                              style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
-                            >
-                              View
-                            </a>
+                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              {isEditing ? (
+                                <>
+                                  <button
+                                    onClick={() => saveEditingSearchRecord(record.projectId, record.id)}
+                                    style={buttonStyle}
+                                  >
+                                    Save
+                                  </button>
+                                  <button onClick={cancelEditingSearchRecord} style={lightButtonStyle}>
+                                    Cancel
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => startEditingSearchRecord(record)}
+                                    aria-label="Edit record"
+                                    title="Edit"
+                                    style={actionButtonStyle}
+                                  >
+                                    ✎
+                                  </button>
+                                  <button
+                                    onClick={() => updateRecord(record.projectId, record.id, { bookmarked: !record.bookmarked })}
+                                    aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
+                                    title={record.bookmarked ? "Remove favorite" : "Favorite"}
+                                    style={actionButtonStyle}
+                                  >
+                                    {record.bookmarked ? "★" : "☆"}
+                                  </button>
+                                  <button
+                                    onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                    aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
+                                    title={record.highlighted ? "Remove highlight" : "Highlight"}
+                                    style={highlightActionButtonStyle(record.highlighted)}
+                                  >
+                                    H
+                                  </button>
+                                  <button
+                                    onClick={() => deleteRecord(record.projectId, record.id)}
+                                    aria-label="Delete record"
+                                    title="Delete"
+                                    style={{ ...actionButtonStyle, color: "#dc2626" }}
+                                  >
+                                    X
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -2330,7 +2464,7 @@ export default function App() {
 
                     {recordsByYear.length === 0 && (
                       <tr>
-                        <td colSpan="9" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                        <td colSpan="8" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
                           No records found for this year.
                         </td>
                       </tr>
