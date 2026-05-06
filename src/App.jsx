@@ -1096,6 +1096,7 @@ export default function App() {
     location: "",
   });
   const [householdHasRun, setHouseholdHasRun] = useState(false);
+  const [helpSearch, setHelpSearch] = useState("");
   const [editingSearchRecordId, setEditingSearchRecordId] = useState("");
   const [editingSearchRecordDraft, setEditingSearchRecordDraft] = useState({
     year: "",
@@ -1955,18 +1956,67 @@ export default function App() {
   };
 
   const helpTopics = [
-    { href: "#/help/getting-started", label: "Getting Started" },
-    { href: "#/help/how-it-works", label: "How Census Notebook Works" },
-    { href: "#/help/projects", label: "Working with Projects" },
-    { href: "#/help/census-image-text", label: "Converting a Census Image Into Text" },
-    { href: "#/help/census-years", label: "Census Versions Through the Years" },
-    { href: "#/help/templates", label: "Using Templates" },
-    { href: "#/help/manual-records", label: "Adding Records Manually" },
-    { href: "#/help/import-scope", label: "How Much Census Data Should You Import?" },
-    { href: "#/help/cleaning-data", label: "Tips for Cleaning Up Data Before Import" },
-    { href: "#/help/sources-attachments", label: "Sources & Attachments" },
-    { href: "#/help/known-limitations", label: "Known Limitations" },
+    {
+      href: "#/help/getting-started",
+      label: "Getting Started",
+      description: "Create a project, add census data, then use analysis tools to find patterns.",
+    },
+    {
+      href: "#/help/how-it-works",
+      label: "How Census Notebook Works",
+      description: "Learn how local storage, projects, searching, and privacy fit together.",
+    },
+    {
+      href: "#/help/projects",
+      label: "Working with Projects",
+      description: "Organize records by surname, place, time period, or family branch.",
+    },
+    {
+      href: "#/help/census-image-text",
+      label: "Converting a Census Image Into Text",
+      description: "Download an image, transcribe it with OCR or AI, clean it up, and import it.",
+    },
+    {
+      href: "#/help/census-years",
+      label: "Census Versions Through the Years",
+      description: "Understand how census questions and available fields changed over time.",
+    },
+    {
+      href: "#/help/templates",
+      label: "Using Templates",
+      description: "Paste spreadsheet rows, import CSV files, attach source documents, and save template data.",
+    },
+    {
+      href: "#/help/manual-records",
+      label: "Adding Records Manually",
+      description: "Type a single record from the Home page or enter rows directly in a census template.",
+    },
+    {
+      href: "#/help/import-scope",
+      label: "How Much Census Data Should You Import?",
+      description: "Decide whether to import full pages, direct family households, or both.",
+    },
+    {
+      href: "#/help/cleaning-data",
+      label: "Tips for Cleaning Up Data Before Import",
+      description: "Prepare OCR or spreadsheet data so imports, searches, and analysis work better.",
+    },
+    {
+      href: "#/help/sources-attachments",
+      label: "Sources & Attachments",
+      description: "Organize census images and PDFs in your own source folder.",
+    },
+    {
+      href: "#/help/known-limitations",
+      label: "Known Limitations",
+      description: "Understand local storage, backups, attachments, and browser limits.",
+    },
   ];
+  const filteredHelpTopics = helpTopics.filter((topic) => {
+    const searchText = helpSearch.trim().toLowerCase();
+    if (!searchText) return true;
+    return `${topic.label} ${topic.description}`.toLowerCase().includes(searchText);
+  });
 
   const renderHelpTopicControls = () => (
     <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
@@ -2677,85 +2727,26 @@ export default function App() {
           <main style={{ maxWidth: "980px", margin: "0 auto", textAlign: "left" }}>
             <section style={{ ...cardStyle, padding: "28px" }}>
               <h2 style={{ ...sectionTitleStyle, fontSize: "28px" }}>Topics</h2>
+              <input
+                value={helpSearch}
+                onChange={(event) => setHelpSearch(event.target.value)}
+                placeholder="Search help topics"
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginBottom: "14px" }}
+              />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "14px" }}>
-                <a href="#/help/getting-started" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Getting Started</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Create a project, add census data, then use analysis tools to find patterns.
-                  </span>
-                </a>
-                <a href="#/help/how-it-works" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>How Census Notebook works</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Learn how local storage, projects, searching, and privacy fit together.
-                  </span>
-                </a>
-                <a href="#/help/projects" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Working with Projects</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Organize records by surname, place, time period, or family branch.
-                  </span>
-                </a>
-                <a href="#/help/census-image-text" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Converting a census image into text</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Download an image, transcribe it with OCR or AI, clean it up, and import it.
-                  </span>
-                </a>
-                <a href="#/help/census-years" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Census versions through the years</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Understand how census questions and available fields changed over time.
-                  </span>
-                </a>
-                <a href="#/help/templates" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Using Templates</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Paste spreadsheet rows, import CSV files, attach source documents, and save template data.
-                  </span>
-                </a>
-                <a href="#/help/manual-records" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Adding Records Manually</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Type a single record from the Home page or enter rows directly in a census template.
-                  </span>
-                </a>
-                <a href="#/help/import-scope" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>How Much Census Data Should You Import?</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Decide whether to import full pages, direct family households, or both.
-                  </span>
-                </a>
-                <a href="#/help/cleaning-data" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Tips for Cleaning Up Data Before Import</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Prepare OCR or spreadsheet data so imports, searches, and analysis work better.
-                  </span>
-                </a>
-                <a href="#/help/sources-attachments" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Sources & Attachments</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Organize census images and PDFs in your own source folder.
-                  </span>
-                </a>
-                <a href="#/help/known-limitations" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
-                  <strong>Known Limitations</strong>
-                  <br />
-                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
-                    Understand local storage, backups, attachments, and browser limits.
-                  </span>
-                </a>
+                {filteredHelpTopics.map((topic) => (
+                  <a key={topic.href} href={topic.href} style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                    <strong>{topic.label}</strong>
+                    <br />
+                    <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                      {topic.description}
+                    </span>
+                  </a>
+                ))}
               </div>
+              {filteredHelpTopics.length === 0 && (
+                <p style={{ margin: "14px 0 0", color: "#6b7280" }}>No help topics match your search.</p>
+              )}
             </section>
           </main>
           <CopyrightFooter />
