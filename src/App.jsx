@@ -342,6 +342,28 @@ function getRecordGivenName(record) {
   return name;
 }
 
+function recordMatchesTextFilter(record, filterText) {
+  const queryTerms = String(filterText || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (queryTerms.length === 0) return true;
+
+  const givenName = getRecordGivenName(record);
+  const surname = getRecordSurname(record);
+  const haystack = [
+    record.name,
+    givenName,
+    surname,
+    `${givenName} ${surname}`,
+    `${surname} ${givenName}`,
+    record.location,
+    record.household,
+    record.notes,
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return queryTerms.every((term) => haystack.includes(term));
+}
+
 function normalizeMatchText(value) {
   return String(value || "")
     .trim()
@@ -452,15 +474,53 @@ function getRecordHouseholdKey(record) {
   ].join("|");
 }
 
-function CopyrightFooter() {
+function HelpIconLink() {
   return (
-    <footer style={{ marginTop: "24px", padding: "18px", textAlign: "center", color: "#6b7280", fontSize: "14px" }}>
-      Copyright {new Date().getFullYear()}{" "}
-      <a href="mailto:cousin.kate@olddeadrelatives.com" style={{ color: "inherit", fontWeight: "700" }}>
-        Kate Montressor
-      </a>
-      . v1. All rights reserved. This app is free for anyone to use. Please do not steal my work.
-    </footer>
+    <a
+      href="#/help"
+      aria-label="Open Help"
+      title="Help"
+      style={{
+        position: "fixed",
+        top: "14px",
+        left: "14px",
+        zIndex: 20,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "34px",
+        height: "34px",
+        borderRadius: "50%",
+        background: "#ffffff",
+        border: "1px solid #d1d5db",
+        color: "#2f4473",
+        fontSize: "20px",
+        fontWeight: "800",
+        lineHeight: 1,
+        textDecoration: "none",
+        boxShadow: "0 8px 20px rgba(15, 23, 42, 0.16)",
+      }}
+    >
+      ?
+    </a>
+  );
+}
+
+function CopyrightFooter() {
+  const currentHash = window.location.hash || "#/";
+  const isHelpPage = currentHash === "#/help" || currentHash.startsWith("#/help/");
+
+  return (
+    <>
+      {!isHelpPage && <HelpIconLink />}
+      <footer style={{ marginTop: "24px", padding: "18px", textAlign: "center", color: "#6b7280", fontSize: "14px" }}>
+        Copyright {new Date().getFullYear()}{" "}
+        <a href="mailto:cousin.kate@olddeadrelatives.com" style={{ color: "inherit", fontWeight: "700" }}>
+          Kate Montressor
+        </a>
+        . v1. All rights reserved. This app is free for anyone to use. Please do not steal my work.
+      </footer>
+    </>
   );
 }
 
@@ -700,7 +760,7 @@ function CensusTemplatePage({
                 onClick={() => onViewRecordsByYear(template.year)}
                 style={{ ...compactLightButtonStyle, display: "inline-block", textDecoration: "none" }}
               >
-                View Records by Year
+                View Census Records by Year
               </a>
             </div>
           </div>
@@ -1071,10 +1131,12 @@ export default function App() {
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [searchResultsCleared, setSearchResultsCleared] = useState(false);
   const [recordsByYearSelection, setRecordsByYearSelection] = useState("");
+  const [recordsByYearFilter, setRecordsByYearFilter] = useState("");
   const [recordsByYearSort, setRecordsByYearSort] = useState({
     field: "page",
     direction: "asc",
   });
+  const [projectDataFilter, setProjectDataFilter] = useState("");
   const [projectDataSort, setProjectDataSort] = useState({
     field: "surname",
     direction: "asc",
@@ -1449,26 +1511,8 @@ export default function App() {
   }, [data.projects, householdSearch]);
 
   const filteredRecords = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const queryTerms = q.split(/\s+/).filter(Boolean);
-
     return allRecords.filter((record) => {
-      const givenName = getRecordGivenName(record);
-      const surname = getRecordSurname(record);
-      const haystack = [
-        record.name,
-        givenName,
-        surname,
-        `${givenName} ${surname}`,
-        `${surname} ${givenName}`,
-        record.location,
-        record.household,
-        record.notes,
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      if (queryTerms.length > 0 && !queryTerms.every((term) => haystack.includes(term))) return false;
+      if (!recordMatchesTextFilter(record, query)) return false;
       if (yearFilter !== "all" && record.year !== yearFilter) return false;
       if (showBookmarkedOnly && !record.bookmarked) return false;
       return true;
@@ -1490,6 +1534,7 @@ export default function App() {
 
     return allRecords
       .filter((record) => String(record.year || "") === String(selectedRecordsByYear || ""))
+      .filter((record) => recordMatchesTextFilter(record, recordsByYearFilter))
       .sort((left, right) => {
         const primaryComparison = compareRecordValues(
           getSortValue(left),
@@ -1503,7 +1548,7 @@ export default function App() {
 
         return compareRecordValues(left.name, right.name);
       });
-  }, [allRecords, recordsByYearSort, selectedRecordsByYear]);
+  }, [allRecords, recordsByYearFilter, recordsByYearSort, selectedRecordsByYear]);
 
   async function createProject() {
     const name = newProjectName.trim();
@@ -2233,13 +2278,13 @@ export default function App() {
             <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Records by year
             </p>
-            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Records by Year</h1>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Census Records by Year</h1>
             <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
               <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
                 Back to Home
               </a>
               <a href="#/project-data" style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
-                View Project Data
+                View Records by Project
               </a>
             </div>
           </header>
@@ -2270,6 +2315,12 @@ export default function App() {
             <section style={cardStyle}>
               <div style={{ marginBottom: "14px" }}>
                 <h2 style={sectionTitleStyle}>Records</h2>
+                <input
+                  value={recordsByYearFilter}
+                  onChange={(event) => setRecordsByYearFilter(event.target.value)}
+                  placeholder="Filter name, location, note..."
+                  style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
+                />
                 <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
                   Click the header to sort by Surname, Location, or Page.
                 </p>
@@ -2642,7 +2693,16 @@ export default function App() {
       selectedProjectId === "all"
         ? data.projects
         : data.projects.filter((project) => project.id === selectedProjectId);
-    const visibleRecordCount = visibleProjects.reduce((total, project) => total + project.records.length, 0);
+    const filteredProjectRecords = new Map(
+      visibleProjects.map((project) => [
+        project.id,
+        project.records.filter((record) => recordMatchesTextFilter(record, projectDataFilter)),
+      ])
+    );
+    const visibleRecordCount = visibleProjects.reduce(
+      (total, project) => total + (filteredProjectRecords.get(project.id)?.length || 0),
+      0
+    );
     const projectDataSortAccessors = {
       surname: getRecordSurname,
       location: (record) => record.location,
@@ -2692,13 +2752,13 @@ export default function App() {
             <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Project data
             </p>
-            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>All Census Data by Project</h1>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Census Records by Project</h1>
             <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
               <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
                 Back to Home
               </a>
-              <a href="#/help/projects" style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
-                Projects Help
+              <a href="#/records-by-year" style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+                View Records by Year
               </a>
             </div>
           </header>
@@ -2710,9 +2770,6 @@ export default function App() {
                   <h2 style={sectionTitleStyle}>Project Records</h2>
                   <p style={{ margin: 0, color: "#4b5563" }}>
                     Showing {visibleRecordCount} {visibleRecordCount === 1 ? "record" : "records"}.
-                  </p>
-                  <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
-                    Click the header to sort by Surname, Location, or Page.
                   </p>
                 </div>
 
@@ -2734,12 +2791,25 @@ export default function App() {
               </div>
             </section>
 
+            <section style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Records</h2>
+              <input
+                value={projectDataFilter}
+                onChange={(event) => setProjectDataFilter(event.target.value)}
+                placeholder="Filter name, location, note..."
+                style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
+              />
+              <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
+                Click the header to sort by Surname, Location, or Page.
+              </p>
+            </section>
+
             {visibleProjects.map((project) => (
               <section key={project.id} style={cardStyle}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "baseline", flexWrap: "wrap" }}>
                   <h2 style={sectionTitleStyle}>{project.name}</h2>
                   <span style={{ color: "#6b7280", fontWeight: "700" }}>
-                    {project.records.length} {project.records.length === 1 ? "record" : "records"}
+                    {(filteredProjectRecords.get(project.id)?.length || 0)} {(filteredProjectRecords.get(project.id)?.length || 0) === 1 ? "record" : "records"}
                   </span>
                 </div>
 
@@ -2764,7 +2834,7 @@ export default function App() {
                     </thead>
 
                     <tbody>
-                      {getSortedProjectRecords(project.records).map((record) => {
+                      {getSortedProjectRecords(filteredProjectRecords.get(project.id) || []).map((record) => {
                         const isEditing = editingSearchRecordId === record.id;
 
                         return (
@@ -2910,10 +2980,10 @@ export default function App() {
                         );
                       })}
 
-                      {project.records.length === 0 && (
+                      {(filteredProjectRecords.get(project.id)?.length || 0) === 0 && (
                         <tr>
                           <td colSpan="7" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
-                            No records in this project yet.
+                            {projectDataFilter.trim() ? "No records match this filter." : "No records in this project yet."}
                           </td>
                         </tr>
                       )}
@@ -4597,12 +4667,6 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
           </p>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap", marginTop: "10px" }}>
             <a
-              href="#/help"
-              style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
-            >
-              Help
-            </a>
-            <a
               href="#/help/how-it-works"
               style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
             >
@@ -4618,9 +4682,9 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <a style={navLinkStyle} href="#projects">Create a New Project</a>
                 <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
-                <a style={navLinkStyle} href="#/project-data">View Project Data</a>
+                <a style={navLinkStyle} href="#/project-data">View Records by Project</a>
                 <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
-                <a style={navLinkStyle} href="#/favorites">Favorites</a>
+                <a style={navLinkStyle} href="#/favorites">View Favorites</a>
                 <a style={navLinkStyle} href="#/help">Help</a>
               </div>
             </nav>
