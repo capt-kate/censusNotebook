@@ -1472,11 +1472,18 @@ export default function App() {
 
   const filteredRecords = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const queryTerms = q.split(/\s+/).filter(Boolean);
 
     return allRecords.filter((record) => {
+      const givenName = getRecordGivenName(record);
+      const surname = getRecordSurname(record);
       const haystack = [
         record.year,
         record.name,
+        givenName,
+        surname,
+        `${givenName} ${surname}`,
+        `${surname} ${givenName}`,
         record.location,
         record.household,
         record.notes,
@@ -1485,7 +1492,7 @@ export default function App() {
         .join(" ")
         .toLowerCase();
 
-      if (q && !haystack.includes(q)) return false;
+      if (queryTerms.length > 0 && !queryTerms.every((term) => haystack.includes(term))) return false;
       if (yearFilter !== "all" && record.year !== yearFilter) return false;
       if (showBookmarkedOnly && !record.bookmarked) return false;
       return true;
