@@ -2868,23 +2868,6 @@ export default function App() {
               </section>
             )}
 
-            <section style={helpSectionNoDividerStyle}>
-              <h3>What it will show</h3>
-              <ul>
-                <li>Every census entry for a person.</li>
-                <li>A link from each result to the full household record.</li>
-                <li>Key fields side-by-side: age, location, occupation, and birth place.</li>
-              </ul>
-            </section>
-
-            <section style={helpSectionNoDividerStyle}>
-              <h3>What it reveals</h3>
-              <ul>
-                <li>Migration patterns.</li>
-                <li>Age inconsistencies.</li>
-                <li>Name variations.</li>
-              </ul>
-            </section>
           </article>
           <CopyrightFooter />
         </div>
@@ -3017,17 +3000,6 @@ export default function App() {
               </section>
             )}
 
-            <section style={helpSectionNoDividerStyle}>
-              <h3>What it will show</h3>
-              <ul>
-                <li>The matching person or household.</li>
-                <li>Up to 5 dwelling numbers before the match.</li>
-                <li>Up to 5 dwelling numbers after the match.</li>
-                <li>If dwelling number is blank, Census Notebook uses family number instead.</li>
-                <li>Only the likely head of household for each dwelling or family group.</li>
-                <li>Links back to the full project data record.</li>
-              </ul>
-            </section>
           </article>
           <CopyrightFooter />
         </div>
@@ -3156,15 +3128,6 @@ export default function App() {
               </section>
             )}
 
-            <section style={helpSectionNoDividerStyle}>
-              <h3>What it will show</h3>
-              <ul>
-                <li>The found person highlighted in the household group.</li>
-                <li>All entered records with the same dwelling or household identifier.</li>
-                <li>Relationship, age, birth place, occupation, and notes when available.</li>
-                <li>Links back to the full project data record.</li>
-              </ul>
-            </section>
           </article>
           <CopyrightFooter />
         </div>
