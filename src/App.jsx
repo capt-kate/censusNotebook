@@ -475,6 +475,8 @@ function CensusTemplatePage({
   const [pastedTemplateText, setPastedTemplateText] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(template.label);
+  const compactButtonStyle = { ...buttonStyle, fontSize: "13px", padding: "8px 12px" };
+  const compactLightButtonStyle = { ...lightButtonStyle, fontSize: "13px", padding: "8px 12px" };
 
   function updateCell(rowIndex, columnKey, value) {
     setRows((prev) =>
@@ -606,12 +608,12 @@ function CensusTemplatePage({
             )}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px", flexWrap: "wrap" }}>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...compactButtonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
             <a
               href={template.sourceWorkbook}
-              style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+              style={{ ...compactLightButtonStyle, display: "inline-block", textDecoration: "none" }}
             >
               Download Excel Template
             </a>
@@ -650,9 +652,9 @@ function CensusTemplatePage({
               </p>
             </div>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-start" }}>
-              <button onClick={addBlankRows} style={lightButtonStyle}>Add Rows</button>
-              <button onClick={clearRows} style={lightButtonStyle}>Clear All</button>
-              <label style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px" }}>
+              <button onClick={addBlankRows} style={compactLightButtonStyle}>Add Rows</button>
+              <button onClick={clearRows} style={compactLightButtonStyle}>Clear All</button>
+              <label style={{ ...compactLightButtonStyle, display: "inline-block" }}>
                 Import CSV
                 <input type="file" accept=".csv,.txt" onChange={importCsvFile} style={{ display: "none" }} />
               </label>
@@ -673,23 +675,23 @@ function CensusTemplatePage({
               }}
             />
             <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
-              <button onClick={applyPasteBox} disabled={!pastedTemplateText.trim()} style={buttonStyle}>
+              <button onClick={applyPasteBox} disabled={!pastedTemplateText.trim()} style={compactButtonStyle}>
                 Paste Data into Template
               </button>
-              <button onClick={() => setPastedTemplateText("")} disabled={!pastedTemplateText} style={lightButtonStyle}>
+              <button onClick={() => setPastedTemplateText("")} disabled={!pastedTemplateText} style={compactLightButtonStyle}>
                 Clear Paste Box
               </button>
               <button
                 onClick={importRows}
                 disabled={!activeProject}
-                style={activeProject ? buttonStyle : { ...buttonStyle, cursor: "not-allowed", opacity: 0.55 }}
+                style={activeProject ? compactButtonStyle : { ...compactButtonStyle, cursor: "not-allowed", opacity: 0.55 }}
               >
                 Add Filled Rows to Project
               </button>
               <a
                 href="#/records-by-year"
                 onClick={() => onViewRecordsByYear(template.year)}
-                style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px", textDecoration: "none" }}
+                style={{ ...compactLightButtonStyle, display: "inline-block", textDecoration: "none" }}
               >
                 View Records by Year
               </a>
@@ -913,10 +915,10 @@ function SourceImageCollectionPage({
           </p>
           <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Collect Census Images</h1>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
-            <a href="#/help/sources-attachments" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/help/sources-attachments" style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Sources & Attachments Help
             </a>
           </div>
@@ -2012,7 +2014,7 @@ export default function App() {
               Custom template
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Create Template</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2106,7 +2108,7 @@ export default function App() {
               Census template
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>{templateYear} Census</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2161,7 +2163,7 @@ export default function App() {
               Records by year
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Records by Year</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2263,7 +2265,7 @@ export default function App() {
               Favorites
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Favorite Records</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2446,10 +2448,10 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>All Census Data by Project</h1>
             <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-              <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+              <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
                 Back to Home
               </a>
-              <a href="#/help/projects" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              <a href="#/help/projects" style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
                 Projects Help
               </a>
             </div>
@@ -2667,7 +2669,7 @@ export default function App() {
               Help center
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Census Notebook Help</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2771,7 +2773,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Person Timeline</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2899,7 +2901,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Neighbors</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -3042,7 +3044,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Household</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -3185,7 +3187,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Duplicates</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -4429,7 +4431,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
             </a>
             <a
               href="#/help/how-it-works"
-              style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
+              style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
             >
               How Census Notebook Works
             </a>
@@ -4442,8 +4444,6 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               <h2 style={sectionTitleStyle}>Tasks</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <a style={navLinkStyle} href="#projects">Create a New Project</a>
-                <a style={navLinkStyle} href="#templates">Select a Census Template</a>
-                <a style={navLinkStyle} href="#add-record">Add a Record</a>
                 <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
                 <a style={navLinkStyle} href="#/project-data">View Project Data</a>
                 <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
@@ -4600,7 +4600,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   textAlign: "center",
                 }}
               >
-                Create Template
+                Create a Template
               </a>
             </section>
 
