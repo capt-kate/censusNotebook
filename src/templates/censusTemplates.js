@@ -97,8 +97,6 @@ export const censusTemplates = [
       { key: "page", label: "Page" },
       { key: "surname", label: "Surname" },
       { key: "givenName", label: "Given Name" },
-      { key: "county", label: "County" },
-      { key: "state", label: "State" },
       { key: "engagedInAgriculture", label: "# Engaged in Agriculture" },
       { key: "freeWhiteMalesUnder10", label: "Free White Persons - Males Under 10" },
       { key: "freeWhiteMales10To15", label: "Free White Persons - Males 10 to 15" },
