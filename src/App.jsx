@@ -606,7 +606,7 @@ function CensusTemplatePage({
             )}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-start", gap: "10px", flexWrap: "wrap" }}>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
             <a
@@ -756,6 +756,7 @@ function SourceImageCollectionPage({
   shellStyle,
   headerStyle,
   cardStyle,
+  buttonStyle,
   lightButtonStyle,
   inputStyle,
 }) {
@@ -912,7 +913,7 @@ function SourceImageCollectionPage({
           </p>
           <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Collect Census Images</h1>
           <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
             <a href="#/help/sources-attachments" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
@@ -1951,6 +1952,45 @@ export default function App() {
     marginTop: "12px",
   };
 
+  const helpTopics = [
+    { href: "#/help/getting-started", label: "Getting Started" },
+    { href: "#/help/how-it-works", label: "How Census Notebook Works" },
+    { href: "#/help/projects", label: "Working with Projects" },
+    { href: "#/help/census-image-text", label: "Converting a Census Image Into Text" },
+    { href: "#/help/census-years", label: "Census Versions Through the Years" },
+    { href: "#/help/templates", label: "Using Templates" },
+    { href: "#/help/manual-records", label: "Adding Records Manually" },
+    { href: "#/help/import-scope", label: "How Much Census Data Should You Import?" },
+    { href: "#/help/cleaning-data", label: "Tips for Cleaning Up Data Before Import" },
+    { href: "#/help/sources-attachments", label: "Sources & Attachments" },
+    { href: "#/help/known-limitations", label: "Known Limitations" },
+  ];
+
+  const renderHelpTopicControls = () => (
+    <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+      <a
+        href="#/"
+        style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
+      >
+        Back to Home
+      </a>
+      <select
+        value={currentPage}
+        onChange={(event) => {
+          window.location.hash = event.target.value;
+        }}
+        style={{ ...inputStyle, minWidth: "260px" }}
+        aria-label="Choose help topic"
+      >
+        {helpTopics.map((topic) => (
+          <option key={topic.href} value={topic.href}>
+            {topic.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
   const codeBlockStyle = {
     display: "block",
     background: "#f3f4f6",
@@ -1972,7 +2012,7 @@ export default function App() {
               Custom template
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Create Template</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2026,9 +2066,10 @@ export default function App() {
         pageStyle={pageStyle}
         shellStyle={shellStyle}
         headerStyle={headerStyle}
-        cardStyle={cardStyle}
-        lightButtonStyle={lightButtonStyle}
-        inputStyle={inputStyle}
+            cardStyle={cardStyle}
+            buttonStyle={buttonStyle}
+            lightButtonStyle={lightButtonStyle}
+            inputStyle={inputStyle}
       />
     );
   }
@@ -2065,7 +2106,7 @@ export default function App() {
               Census template
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>{templateYear} Census</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2120,7 +2161,7 @@ export default function App() {
               Records by year
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Records by Year</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2222,7 +2263,7 @@ export default function App() {
               Favorites
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Favorite Records</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2405,7 +2446,7 @@ export default function App() {
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>All Census Data by Project</h1>
             <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
-              <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+              <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
                 Back to Home
               </a>
               <a href="#/help/projects" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
@@ -2626,7 +2667,7 @@ export default function App() {
               Help center
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Census Notebook Help</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2677,6 +2718,13 @@ export default function App() {
                     Paste spreadsheet rows, import CSV files, attach source documents, and save template data.
                   </span>
                 </a>
+                <a href="#/help/manual-records" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
+                  <strong>Adding Records Manually</strong>
+                  <br />
+                  <span style={{ color: "#4b5563", fontWeight: "400" }}>
+                    Type a single record from the Home page or enter rows directly in a census template.
+                  </span>
+                </a>
                 <a href="#/help/import-scope" style={{ ...navLinkStyle, textAlign: "left", background: "#f9fafb" }}>
                   <strong>How Much Census Data Should You Import?</strong>
                   <br />
@@ -2723,7 +2771,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Person Timeline</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2851,7 +2899,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Neighbors</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -2994,7 +3042,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Household</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -3137,7 +3185,7 @@ export default function App() {
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Duplicates</h1>
-            <a href="#/" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
@@ -3239,9 +3287,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>How Census Notebook Works</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3328,9 +3374,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Getting Started</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3358,6 +3402,19 @@ export default function App() {
                 Cleaning the data first helps names, locations, page numbers, and household details
                 line up correctly when you search or analyze later.
               </p>
+              <p>Helpful next steps:</p>
+              <ul>
+                <li>
+                  <a href="#/help/census-image-text" style={{ color: "#1d4ed8", fontWeight: "700", textDecoration: "none" }}>
+                    Converting a census image into text
+                  </a>
+                </li>
+                <li>
+                  <a href="#/help/templates" style={{ color: "#1d4ed8", fontWeight: "700", textDecoration: "none" }}>
+                    Using Templates
+                  </a>
+                </li>
+              </ul>
             </section>
 
             <section style={helpSectionNoDividerStyle}>
@@ -3383,9 +3440,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Working with Projects</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3468,9 +3523,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Using Templates</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3602,6 +3655,65 @@ export default function App() {
     );
   }
 
+  if (currentPage === "#/help/manual-records") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Adding Records Manually</h1>
+            {renderHelpTopicControls()}
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Type records directly into Census Notebook</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              You do not have to import a spreadsheet. If you are working from one census record,
+              handwritten notes, or a small amount of data, you can type records in by hand.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Option 1: Use Add Record on the Home Page</h3>
+              <p>
+                Use <strong>Add Record to [project name]</strong> when you want to create one quick
+                record without opening a full census template.
+              </p>
+              <ul>
+                <li>Select or create the project first.</li>
+                <li>Enter the year, name, location, page, and notes.</li>
+                <li>Click <strong>Add Record</strong>.</li>
+              </ul>
+              <p>
+                This is best for a single person, a quick note, or a record that does not need all the
+                fields from a census-year template.
+              </p>
+            </section>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>Option 2: Type Into a Census Template</h3>
+              <p>
+                Use a census-year template when you want the fields for that specific census year.
+              </p>
+              <ul>
+                <li>Open the template for the census year you are using.</li>
+                <li>Type information directly into the table cells.</li>
+                <li>Click <strong>Add Rows</strong> if you need more blank rows.</li>
+                <li>Click <strong>Add Filled Rows to Project</strong> when you are ready to save.</li>
+              </ul>
+              <p>
+                This is best when you are entering a full household, multiple rows from a page, or data
+                that should line up with the official census fields for that year.
+              </p>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
   if (currentPage === "#/help/import-scope") {
     return (
       <div style={pageStyle}>
@@ -3611,9 +3723,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>How Much Census Data Should You Import?</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3740,9 +3850,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Tips for Cleaning Up Data Before Import</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3871,9 +3979,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Sources & Attachments</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -3950,9 +4056,7 @@ export default function App() {
               Help topic
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Known Limitations</h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -4026,9 +4130,7 @@ export default function App() {
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>
               Census Versions Through the Years
             </h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -4170,9 +4272,7 @@ export default function App() {
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>
               Converting a Census Image into Text
             </h1>
-            <a href="#/help" style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}>
-              Back to Help
-            </a>
+            {renderHelpTopicControls()}
           </header>
 
           <article style={helpArticleStyle}>
@@ -4297,12 +4397,20 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
           <p style={{ marginTop: "16px", color: apiConnected ? "#047857" : "#92400e", fontWeight: "700" }}>
             {statusMessage}
           </p>
-          <a
-            href="#/help"
-            style={{ ...buttonStyle, display: "inline-block", marginTop: "10px", textDecoration: "none" }}
-          >
-            Help
-          </a>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap", marginTop: "10px" }}>
+            <a
+              href="#/help"
+              style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
+            >
+              Help
+            </a>
+            <a
+              href="#/help/how-it-works"
+              style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
+            >
+              How Census Notebook Works
+            </a>
+          </div>
         </header>
 
         <main style={mainStyle}>
