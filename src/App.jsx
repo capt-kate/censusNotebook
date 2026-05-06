@@ -1075,6 +1075,10 @@ export default function App() {
     field: "page",
     direction: "asc",
   });
+  const [projectDataSort, setProjectDataSort] = useState({
+    field: "surname",
+    direction: "asc",
+  });
   const [newProjectName, setNewProjectName] = useState("");
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
   const [customTemplateDraft, setCustomTemplateDraft] = useState({
@@ -2196,15 +2200,6 @@ export default function App() {
   }
 
   if (currentPage === "#/records-by-year") {
-    const sortableColumns = [
-      { field: "page", label: "Page", value: getRecordPageNumber },
-      { field: "location", label: "Location", value: (record) => record.location },
-      { field: "surname", label: "Surname", value: getRecordSurname },
-      { field: "dwelling", label: "Dwelling", value: getRecordDwellingNumber },
-      { field: "line", label: "Line", value: getRecordLineNumber },
-      { field: "family", label: "Family", value: getRecordFamilyNumber },
-    ];
-
     const sortButtonStyle = (field) => ({
       background: "none",
       border: "none",
@@ -2223,6 +2218,13 @@ export default function App() {
         direction: prev.field === field && prev.direction === "asc" ? "desc" : "asc",
       }));
     };
+
+    const sortHeaderLabel = (field, label) => (
+      <button onClick={() => changeRecordsByYearSort(field)} style={sortButtonStyle(field)}>
+        {label}
+        {recordsByYearSort.field === field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
+      </button>
+    );
 
     return (
       <div style={pageStyle}>
@@ -2266,17 +2268,11 @@ export default function App() {
             </section>
 
             <section style={cardStyle}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap", marginBottom: "14px" }}>
+              <div style={{ marginBottom: "14px" }}>
                 <h2 style={sectionTitleStyle}>Records</h2>
-                <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ color: "#6b7280", fontWeight: "700" }}>Sort by</span>
-                  {sortableColumns.map((column) => (
-                    <button key={column.field} onClick={() => changeRecordsByYearSort(column.field)} style={sortButtonStyle(column.field)}>
-                      {column.label}
-                      {recordsByYearSort.field === column.field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
-                    </button>
-                  ))}
-                </div>
+                <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
+                  Click the header to sort by Surname, Location, or Page.
+                </p>
               </div>
 
               <div style={{ overflowX: "auto" }}>
@@ -2284,10 +2280,16 @@ export default function App() {
                   <thead>
                     <tr style={{ background: "#f3f4f6" }}>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                        {sortHeaderLabel("surname", "Name")}
+                      </th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Year</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Page</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                        {sortHeaderLabel("location", "Location")}
+                      </th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                        {sortHeaderLabel("page", "Page")}
+                      </th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
@@ -2641,6 +2643,47 @@ export default function App() {
         ? data.projects
         : data.projects.filter((project) => project.id === selectedProjectId);
     const visibleRecordCount = visibleProjects.reduce((total, project) => total + project.records.length, 0);
+    const projectDataSortAccessors = {
+      surname: getRecordSurname,
+      location: (record) => record.location,
+      page: getRecordPageNumber,
+    };
+    const projectDataSortButtonStyle = (field) => ({
+      background: "none",
+      border: "none",
+      padding: 0,
+      color: "#111827",
+      cursor: "pointer",
+      fontWeight: "700",
+      font: "inherit",
+      textAlign: "left",
+      textDecoration: projectDataSort.field === field ? "underline" : "none",
+    });
+    const changeProjectDataSort = (field) => {
+      setProjectDataSort((prev) => ({
+        field,
+        direction: prev.field === field && prev.direction === "asc" ? "desc" : "asc",
+      }));
+    };
+    const projectDataSortHeaderLabel = (field, label) => (
+      <button onClick={() => changeProjectDataSort(field)} style={projectDataSortButtonStyle(field)}>
+        {label}
+        {projectDataSort.field === field ? ` ${projectDataSort.direction === "asc" ? "↑" : "↓"}` : ""}
+      </button>
+    );
+    const getSortedProjectRecords = (records) => {
+      const getSortValue = projectDataSortAccessors[projectDataSort.field] || projectDataSortAccessors.surname;
+
+      return [...records].sort((left, right) => {
+        const primaryComparison = compareRecordValues(getSortValue(left), getSortValue(right), projectDataSort.direction);
+        if (primaryComparison !== 0) return primaryComparison;
+
+        const pageComparison = compareRecordValues(getRecordPageNumber(left), getRecordPageNumber(right));
+        if (pageComparison !== 0) return pageComparison;
+
+        return compareRecordValues(left.name, right.name);
+      });
+    };
 
     return (
       <div style={pageStyle}>
@@ -2667,6 +2710,9 @@ export default function App() {
                   <h2 style={sectionTitleStyle}>Project Records</h2>
                   <p style={{ margin: 0, color: "#4b5563" }}>
                     Showing {visibleRecordCount} {visibleRecordCount === 1 ? "record" : "records"}.
+                  </p>
+                  <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
+                    Click the header to sort by Surname, Location, or Page.
                   </p>
                 </div>
 
@@ -2702,17 +2748,23 @@ export default function App() {
                     <thead>
                       <tr style={{ background: "#f3f4f6" }}>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                          {projectDataSortHeaderLabel("surname", "Name")}
+                        </th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Year</th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Page</th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                          {projectDataSortHeaderLabel("location", "Location")}
+                        </th>
+                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                          {projectDataSortHeaderLabel("page", "Page")}
+                        </th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {project.records.map((record) => {
+                      {getSortedProjectRecords(project.records).map((record) => {
                         const isEditing = editingSearchRecordId === record.id;
 
                         return (
