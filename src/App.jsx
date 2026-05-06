@@ -1446,7 +1446,6 @@ export default function App() {
       const givenName = getRecordGivenName(record);
       const surname = getRecordSurname(record);
       const haystack = [
-        record.year,
         record.name,
         givenName,
         surname,
@@ -1455,7 +1454,6 @@ export default function App() {
         record.location,
         record.household,
         record.notes,
-        record.projectName,
       ]
         .join(" ")
         .toLowerCase();
@@ -2485,7 +2483,7 @@ export default function App() {
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Page</th>
+                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                     </tr>
@@ -2543,14 +2541,14 @@ export default function App() {
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
                             {isEditing ? (
                               <input
-                                value={editingSearchRecordDraft.household}
+                                value={editingSearchRecordDraft.birthYear}
                                 onChange={(event) =>
-                                  setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
+                                  setEditingSearchRecordDraft((prev) => ({ ...prev, birthYear: event.target.value }))
                                 }
-                                style={{ ...inputStyle, minWidth: "160px" }}
+                                style={{ ...inputStyle, minWidth: "110px" }}
                               />
                             ) : (
-                              record.household
+                              getRecordBirthYear(record) || "N/A"
                             )}
                           </td>
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
