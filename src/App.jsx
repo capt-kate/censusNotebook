@@ -683,7 +683,7 @@ function CensusTemplatePage({
               <a
                 href="#/records-by-year"
                 onClick={() => onViewRecordsByYear(template.year)}
-                style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+                style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px", textDecoration: "none" }}
               >
                 View Records by Year
               </a>
@@ -2330,50 +2330,138 @@ export default function App() {
                     </thead>
 
                     <tbody>
-                      {project.records.map((record) => (
-                        <tr
-                          id={`record-${record.id}`}
-                          key={record.id}
-                          style={{
-                            background: selectedRecordId === record.id ? "#dbeafe" : record.highlighted ? "#fef9c3" : "white",
-                            outline: selectedRecordId === record.id ? "2px solid #2563eb" : "none",
-                          }}
-                        >
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{record.name}</td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.household}</td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>{record.notes}</td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
-                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                              <button
-                                onClick={() => updateRecord(project.id, record.id, { bookmarked: !record.bookmarked })}
-                                aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
-                                title={record.bookmarked ? "Remove favorite" : "Favorite"}
-                                style={actionButtonStyle}
-                              >
-                                {record.bookmarked ? "★" : "☆"}
-                              </button>
-                              <button
-                                onClick={() => updateRecord(project.id, record.id, { highlighted: !record.highlighted })}
-                                aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
-                                title={record.highlighted ? "Remove highlight" : "Highlight"}
-                                style={highlightActionButtonStyle(record.highlighted)}
-                              >
-                                H
-                              </button>
-                              <button
-                                onClick={() => deleteRecord(project.id, record.id)}
-                                aria-label="Delete record"
-                                title="Delete"
-                                style={{ ...actionButtonStyle, color: "#dc2626" }}
-                              >
-                                X
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {project.records.map((record) => {
+                        const isEditing = editingSearchRecordId === record.id;
+
+                        return (
+                          <tr
+                            id={`record-${record.id}`}
+                            key={record.id}
+                            style={{
+                              background: selectedRecordId === record.id ? "#dbeafe" : record.highlighted ? "#fef9c3" : "white",
+                              outline: selectedRecordId === record.id ? "2px solid #2563eb" : "none",
+                            }}
+                          >
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {isEditing ? (
+                                <input
+                                  value={editingSearchRecordDraft.year}
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({ ...prev, year: event.target.value }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "90px" }}
+                                />
+                              ) : (
+                                record.year
+                              )}
+                            </td>
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                              {isEditing ? (
+                                <input
+                                  value={editingSearchRecordDraft.name}
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({ ...prev, name: event.target.value }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "180px" }}
+                                />
+                              ) : (
+                                record.name
+                              )}
+                            </td>
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {isEditing ? (
+                                <input
+                                  value={editingSearchRecordDraft.location}
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({ ...prev, location: event.target.value }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "160px" }}
+                                />
+                              ) : (
+                                record.location
+                              )}
+                            </td>
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {isEditing ? (
+                                <input
+                                  value={editingSearchRecordDraft.household}
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "160px" }}
+                                />
+                              ) : (
+                                record.household
+                              )}
+                            </td>
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {isEditing ? (
+                                <input
+                                  value={editingSearchRecordDraft.notes}
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({ ...prev, notes: event.target.value }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "220px" }}
+                                />
+                              ) : (
+                                record.notes
+                              )}
+                            </td>
+                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
+                              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      onClick={() => saveEditingSearchRecord(project.id, record.id)}
+                                      style={buttonStyle}
+                                    >
+                                      Save
+                                    </button>
+                                    <button onClick={cancelEditingSearchRecord} style={lightButtonStyle}>
+                                      Cancel
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => startEditingSearchRecord(record)}
+                                      aria-label="Edit record"
+                                      title="Edit"
+                                      style={actionButtonStyle}
+                                    >
+                                      ✎
+                                    </button>
+                                    <button
+                                      onClick={() => updateRecord(project.id, record.id, { bookmarked: !record.bookmarked })}
+                                      aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
+                                      title={record.bookmarked ? "Remove favorite" : "Favorite"}
+                                      style={actionButtonStyle}
+                                    >
+                                      {record.bookmarked ? "★" : "☆"}
+                                    </button>
+                                    <button
+                                      onClick={() => updateRecord(project.id, record.id, { highlighted: !record.highlighted })}
+                                      aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
+                                      title={record.highlighted ? "Remove highlight" : "Highlight"}
+                                      style={highlightActionButtonStyle(record.highlighted)}
+                                    >
+                                      H
+                                    </button>
+                                    <button
+                                      onClick={() => deleteRecord(project.id, record.id)}
+                                      aria-label="Delete record"
+                                      title="Delete"
+                                      style={{ ...actionButtonStyle, color: "#dc2626" }}
+                                    >
+                                      X
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
 
                       {project.records.length === 0 && (
                         <tr>
@@ -2550,6 +2638,7 @@ export default function App() {
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Place</th>
+                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2562,6 +2651,14 @@ export default function App() {
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}</td>
                             <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
                               {getNoteValue(record.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "N/A"}
+                            </td>
+                            <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
+                              <a
+                                href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+                                style={{ ...lightButtonStyle, display: "inline-block", fontSize: "13.3333px", textDecoration: "none" }}
+                              >
+                                View
+                              </a>
                             </td>
                           </tr>
                         ))}
