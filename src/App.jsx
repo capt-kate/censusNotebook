@@ -2153,6 +2153,17 @@ export default function App() {
     fontSize: "22px",
   };
 
+  const stickyTableHeaderCellStyle = {
+    padding: "12px",
+    textAlign: "left",
+    borderBottom: "1px solid #e5e7eb",
+    position: "sticky",
+    top: 0,
+    zIndex: 3,
+    background: "#f3f4f6",
+    boxShadow: "0 1px 0 #e5e7eb",
+  };
+
   const helpArticleStyle = {
     ...cardStyle,
     maxWidth: "980px",
@@ -2495,24 +2506,24 @@ export default function App() {
                 </p>
               </div>
 
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", minWidth: recordsByYearTableMinWidth, borderCollapse: "collapse", fontSize: "14px" }}>
+              <div style={{ overflow: "auto", maxHeight: "70vh" }}>
+                <table style={{ width: "100%", minWidth: recordsByYearTableMinWidth, borderCollapse: "separate", borderSpacing: 0, fontSize: "14px" }}>
                   <thead>
                     <tr style={{ background: "#f3f4f6" }}>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                      <th style={stickyTableHeaderCellStyle}>Year</th>
+                      <th style={stickyTableHeaderCellStyle}>
                         {sortHeaderLabel("surname", "Name")}
                       </th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                      <th style={stickyTableHeaderCellStyle}>
                         {sortHeaderLabel("location", "Location")}
                       </th>
                       {recordsByYearFieldLabels.map((label) => (
-                        <th key={label} style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                        <th key={label} style={stickyTableHeaderCellStyle}>
                           {label.toLowerCase() === "page" ? sortHeaderLabel("page", "Page") : label}
                         </th>
                       ))}
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                      <th style={stickyTableHeaderCellStyle}>Project</th>
+                      <th style={{ ...stickyTableHeaderCellStyle, width: "150px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2990,23 +3001,23 @@ export default function App() {
                   </span>
                 </div>
 
-                <div style={{ overflowX: "auto", marginTop: "14px" }}>
-                  <table style={{ width: "100%", minWidth: projectDataTableMinWidth, borderCollapse: "collapse", fontSize: "14px" }}>
+                <div style={{ overflow: "auto", maxHeight: "70vh", marginTop: "14px" }}>
+                  <table style={{ width: "100%", minWidth: projectDataTableMinWidth, borderCollapse: "separate", borderSpacing: 0, fontSize: "14px" }}>
                     <thead>
                       <tr style={{ background: "#f3f4f6" }}>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                        <th style={stickyTableHeaderCellStyle}>Year</th>
+                        <th style={stickyTableHeaderCellStyle}>
                           {projectDataSortHeaderLabel("surname", "Name")}
                         </th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                        <th style={stickyTableHeaderCellStyle}>
                           {projectDataSortHeaderLabel("location", "Location")}
                         </th>
                         {projectDataFieldLabels.map((label) => (
-                          <th key={label} style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                          <th key={label} style={stickyTableHeaderCellStyle}>
                             {label.toLowerCase() === "page" ? projectDataSortHeaderLabel("page", "Page") : label}
                           </th>
                         ))}
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                        <th style={{ ...stickyTableHeaderCellStyle, width: "150px" }}>Actions</th>
                       </tr>
                     </thead>
 
