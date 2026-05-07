@@ -282,6 +282,35 @@ function getNoteValue(notes, labels) {
   return "";
 }
 
+function getRecordDetailFieldEntries(record) {
+  return [record.household, record.notes]
+    .flatMap((value) => String(value || "").split(";"))
+    .map((part) => {
+      const separatorIndex = part.indexOf(":");
+      if (separatorIndex === -1) return null;
+
+      const label = part.slice(0, separatorIndex).trim();
+      const value = part.slice(separatorIndex + 1).trim();
+      return label && value ? { label, value } : null;
+    })
+    .filter(Boolean);
+}
+
+function getRecordDetailFieldMap(record) {
+  const fieldMap = new Map();
+
+  getRecordDetailFieldEntries(record).forEach((entry) => {
+    const key = entry.label.toLowerCase();
+    if (!fieldMap.has(key)) fieldMap.set(key, entry);
+  });
+
+  return fieldMap;
+}
+
+function getRecordDetailFieldValue(record, label) {
+  return getRecordDetailFieldMap(record).get(String(label || "").toLowerCase())?.value || "";
+}
+
 function updateNoteValue(notes, labels, fallbackLabel, value) {
   const cleanedValue = String(value || "").trim();
   const lowerLabels = labels.map((label) => label.toLowerCase());
@@ -2334,6 +2363,22 @@ export default function App() {
         {recordsByYearSort.field === field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
       </button>
     );
+    const selectedYearTemplate = allTemplates.find((template) => String(template.year || template.label || "") === String(selectedRecordsByYear || ""));
+    const yearTemplateFieldLabels = selectedYearTemplate
+      ? selectedYearTemplate.columns
+          .filter((column) => !["location", "surname", "givenName"].includes(column.key))
+          .map((column) => column.label)
+      : [];
+    const recordsByYearFallbackFieldLabels = Array.from(
+      new Map(
+        recordsByYear.flatMap((record) =>
+          getRecordDetailFieldEntries(record).map((entry) => [entry.label.toLowerCase(), entry.label])
+        )
+      ).values()
+    );
+    const recordsByYearFieldLabels =
+      yearTemplateFieldLabels.length > 0 ? yearTemplateFieldLabels : recordsByYearFallbackFieldLabels;
+    const recordsByYearTableMinWidth = `${Math.max(1160, 560 + recordsByYearFieldLabels.length * 140)}px`;
 
     return (
       <div style={pageStyle}>
@@ -2391,21 +2436,21 @@ export default function App() {
               </div>
 
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", minWidth: "1160px", borderCollapse: "collapse", fontSize: "14px" }}>
+                <table style={{ width: "100%", minWidth: recordsByYearTableMinWidth, borderCollapse: "collapse", fontSize: "14px" }}>
                   <thead>
                     <tr style={{ background: "#f3f4f6" }}>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
                         {sortHeaderLabel("surname", "Name")}
                       </th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Year</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
                         {sortHeaderLabel("location", "Location")}
                       </th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                        {sortHeaderLabel("page", "Page")}
-                      </th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
+                      {recordsByYearFieldLabels.map((label) => (
+                        <th key={label} style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                          {label.toLowerCase() === "page" ? sortHeaderLabel("page", "Page") : label}
+                        </th>
+                      ))}
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                     </tr>
@@ -2450,19 +2495,6 @@ export default function App() {
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
                             {isEditing ? (
                               <input
-                                value={editingSearchRecordDraft.birthYear}
-                                onChange={(event) =>
-                                  setEditingSearchRecordDraft((prev) => ({ ...prev, birthYear: event.target.value }))
-                                }
-                                style={{ ...inputStyle, minWidth: "110px" }}
-                              />
-                            ) : (
-                              getRecordBirthYear(record) || "N/A"
-                            )}
-                          </td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                            {isEditing ? (
-                              <input
                                 value={editingSearchRecordDraft.location}
                                 onChange={(event) =>
                                   setEditingSearchRecordDraft((prev) => ({ ...prev, location: event.target.value }))
@@ -2473,32 +2505,11 @@ export default function App() {
                               record.location
                             )}
                           </td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                            {isEditing ? (
-                              <input
-                                value={editingSearchRecordDraft.household}
-                                onChange={(event) =>
-                                  setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
-                                }
-                                style={{ ...inputStyle, minWidth: "160px" }}
-                              />
-                            ) : (
-                              record.household
-                            )}
-                          </td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                            {isEditing ? (
-                              <input
-                                value={editingSearchRecordDraft.notes}
-                                onChange={(event) =>
-                                  setEditingSearchRecordDraft((prev) => ({ ...prev, notes: event.target.value }))
-                                }
-                                style={{ ...inputStyle, minWidth: "220px" }}
-                              />
-                            ) : (
-                              record.notes
-                            )}
-                          </td>
+                          {recordsByYearFieldLabels.map((label) => (
+                            <td key={label} style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                              {getRecordDetailFieldValue(record, label) || "N/A"}
+                            </td>
+                          ))}
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
                             {record.projectName}
                           </td>
@@ -2560,7 +2571,7 @@ export default function App() {
 
                     {recordsByYear.length === 0 && (
                       <tr>
-                        <td colSpan="8" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                        <td colSpan={5 + recordsByYearFieldLabels.length} style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
                           No records found for this year.
                         </td>
                       </tr>
@@ -2809,6 +2820,28 @@ export default function App() {
       });
     };
     const selectedProjectRecordIdSet = new Set(selectedProjectRecordIds);
+    const templateFieldOrder = new Map();
+    allTemplates.forEach((template) => {
+      template.columns.forEach((column) => {
+        const key = column.label.toLowerCase();
+        if (!templateFieldOrder.has(key)) templateFieldOrder.set(key, templateFieldOrder.size);
+      });
+    });
+    const projectDataFieldLabels = Array.from(
+      new Map(
+        visibleProjects.flatMap((project) =>
+          (filteredProjectRecords.get(project.id) || []).flatMap((record) =>
+            getRecordDetailFieldEntries(record).map((entry) => [entry.label.toLowerCase(), entry.label])
+          )
+        )
+      ).values()
+    ).sort((left, right) => {
+      const leftOrder = templateFieldOrder.get(left.toLowerCase()) ?? 9999;
+      const rightOrder = templateFieldOrder.get(right.toLowerCase()) ?? 9999;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      return left.localeCompare(right);
+    });
+    const projectDataTableMinWidth = `${Math.max(1060, 520 + projectDataFieldLabels.length * 140)}px`;
 
     return (
       <div style={pageStyle}>
@@ -2896,21 +2929,21 @@ export default function App() {
                 </div>
 
                 <div style={{ overflowX: "auto", marginTop: "14px" }}>
-                  <table style={{ width: "100%", minWidth: "1060px", borderCollapse: "collapse", fontSize: "14px" }}>
+                  <table style={{ width: "100%", minWidth: projectDataTableMinWidth, borderCollapse: "collapse", fontSize: "14px" }}>
                     <thead>
                       <tr style={{ background: "#f3f4f6" }}>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
                           {projectDataSortHeaderLabel("surname", "Name")}
                         </th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Year</th>
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
                           {projectDataSortHeaderLabel("location", "Location")}
                         </th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
-                          {projectDataSortHeaderLabel("page", "Page")}
-                        </th>
-                        <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
+                        {projectDataFieldLabels.map((label) => (
+                          <th key={label} style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>
+                            {label.toLowerCase() === "page" ? projectDataSortHeaderLabel("page", "Page") : label}
+                          </th>
+                        ))}
                         <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                       </tr>
                     </thead>
@@ -2957,19 +2990,6 @@ export default function App() {
                             <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
                               {isEditing ? (
                                 <input
-                                  value={editingSearchRecordDraft.birthYear}
-                                  onChange={(event) =>
-                                    setEditingSearchRecordDraft((prev) => ({ ...prev, birthYear: event.target.value }))
-                                  }
-                                  style={{ ...inputStyle, minWidth: "110px" }}
-                                />
-                              ) : (
-                                getRecordBirthYear(record) || "N/A"
-                              )}
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                              {isEditing ? (
-                                <input
                                   value={editingSearchRecordDraft.location}
                                   onChange={(event) =>
                                     setEditingSearchRecordDraft((prev) => ({ ...prev, location: event.target.value }))
@@ -2980,32 +3000,11 @@ export default function App() {
                                 record.location
                               )}
                             </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                              {isEditing ? (
-                                <input
-                                  value={editingSearchRecordDraft.household}
-                                  onChange={(event) =>
-                                    setEditingSearchRecordDraft((prev) => ({ ...prev, household: event.target.value }))
-                                  }
-                                  style={{ ...inputStyle, minWidth: "160px" }}
-                                />
-                              ) : (
-                                record.household
-                              )}
-                            </td>
-                            <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                              {isEditing ? (
-                                <input
-                                  value={editingSearchRecordDraft.notes}
-                                  onChange={(event) =>
-                                    setEditingSearchRecordDraft((prev) => ({ ...prev, notes: event.target.value }))
-                                  }
-                                  style={{ ...inputStyle, minWidth: "220px" }}
-                                />
-                              ) : (
-                                record.notes
-                              )}
-                            </td>
+                            {projectDataFieldLabels.map((label) => (
+                              <td key={label} style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
+                                {getRecordDetailFieldValue(record, label) || "N/A"}
+                              </td>
+                            ))}
                             <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
                               <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-start" }}>
                                 {!isEditing && (
@@ -3076,7 +3075,7 @@ export default function App() {
 
                       {(filteredProjectRecords.get(project.id)?.length || 0) === 0 && (
                         <tr>
-                          <td colSpan="7" style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
+                          <td colSpan={4 + projectDataFieldLabels.length} style={{ padding: "28px", textAlign: "center", color: "#6b7280" }}>
                             {projectDataFilter.trim() ? "No records match this filter." : "No records in this project yet."}
                           </td>
                         </tr>
