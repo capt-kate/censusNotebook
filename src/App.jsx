@@ -193,14 +193,33 @@ function toData(projects, activeProjectId = "") {
   };
 }
 
-function downloadFile(filename, text) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+function downloadFile(filename, text, type = "text/plain;charset=utf-8") {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function escapeCsvValue(value) {
+  const text = String(value || "");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function makeTemplateCsv(template) {
+  const headerRow = template.columns.map((column) => escapeCsvValue(column.label)).join(",");
+  const blankRows = makeTemplateRows(template, 12).map((row) =>
+    template.columns.map((column) => escapeCsvValue(row[column.key] || "")).join(",")
+  );
+
+  return [headerRow, ...blankRows].join("\r\n");
+}
+
+function downloadBlankTemplate(template) {
+  const yearOrLabel = sanitizeFilePart(template.year || template.label) || "census";
+  downloadFile(`${yearOrLabel}-census-template.csv`, makeTemplateCsv(template), "text/csv;charset=utf-8");
 }
 
 function makeTemplateRows(template, rowCount = 10) {
@@ -678,12 +697,13 @@ function CensusTemplatePage({
             <a href="#/" style={{ ...compactButtonStyle, display: "inline-block", textDecoration: "none" }}>
               Back to Home
             </a>
-            <a
-              href={template.sourceWorkbook}
-              style={{ ...compactLightButtonStyle, display: "inline-block", textDecoration: "none" }}
+            <button
+              type="button"
+              onClick={() => downloadBlankTemplate(template)}
+              style={compactLightButtonStyle}
             >
-              Download Excel Template
-            </a>
+              Download blank template
+            </button>
           </div>
         </header>
 
@@ -749,9 +769,6 @@ function CensusTemplatePage({
             <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
               <button onClick={applyPasteBox} disabled={!pastedTemplateText.trim()} style={compactButtonStyle}>
                 Paste Data into Template
-              </button>
-              <button onClick={() => setPastedTemplateText("")} disabled={!pastedTemplateText} style={compactLightButtonStyle}>
-                Clear Paste Box
               </button>
               <button
                 onClick={importRows}
