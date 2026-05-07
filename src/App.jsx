@@ -5107,6 +5107,9 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
             <section id="templates" style={cardStyle}>
               <h2 style={sectionTitleStyle}>Templates</h2>
+              <p style={{ margin: "0 0 12px", color: "#4b5563" }}>
+                Click a year to use the built-in template, or create your own.
+              </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))", gap: "8px" }}>
                 {templateLinks.map((template) =>
                   template.isCustom ? (
