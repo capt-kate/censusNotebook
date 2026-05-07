@@ -4039,13 +4039,26 @@ export default function App() {
                 If needed, you can switch your view to show all data from all projects, giving you a
                 complete picture of your research.
               </p>
+              <ul>
+                <li>
+                  <strong>View Records by Year</strong> shows the most complete census data for each person
+                  in the selected census year.
+                </li>
+                <li>
+                  <strong>View Records by Project</strong> shows an abbreviated version of the census data,
+                  which makes it useful as a quick overview.
+                </li>
+              </ul>
+              <p>
+                You can filter these pages by typing a name, location, or other text into the filter box.
+              </p>
             </section>
 
             <section style={helpSectionNoDividerStyle}>
               <h3>Deleting a Project</h3>
               <p>If you no longer need a project, you can remove it:</p>
               <ul>
-                <li>Use the <strong>Delete Project</strong> button on the Home page.</li>
+                <li>On the Home page in the Projects section, select the project you want to remove, then click <strong>Delete Selected Project</strong>.</li>
                 <li>Deleting a project will also permanently remove all records within that project.</li>
               </ul>
               <p>
