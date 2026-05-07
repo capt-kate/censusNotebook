@@ -417,7 +417,7 @@ export const censusTemplates = [
       { key: "page", label: "Page" },
       { key: "lineNumber", label: "Line Number" },
       { key: "streetName", label: "Street Name" },
-      { key: "houseNumber", label: "House Number" },
+      { key: "houseNumber", label: "House #" },
       { key: "dwellingNumber", label: "Dwelling Number" },
       { key: "familyNumber", label: "Family Number" },
       { key: "surname", label: "Surname" },
