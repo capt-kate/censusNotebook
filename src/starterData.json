@@ -7,24 +7,344 @@
       "createdAt": "2026-05-06T14:48:58.354Z",
       "records": [
         {
-          "id": "record-1",
-          "year": "1900",
-          "name": "Hartley Fuller Dame",
-          "location": "Massachusetts",
-          "household": "247",
-          "notes": "Sample record. Replace with your own census entry.; Birth Year: 1908",
-          "bookmarked": true,
+          "id": "record-1778164158642-d8mt23",
+          "year": "1880",
+          "name": "Gardner A. Rialon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 16; Page: 23",
+          "notes": "Dwelling Number: 207; Race: White; Gender: Male; Age: 12; Birth Year: Abt 1868; Relation to Head of House: Son; Marital Status: Single; Occupation: At School; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
           "highlighted": false
         },
         {
-          "id": "record-2",
-          "year": "1910",
-          "name": "Hartley F. Dame",
-          "location": "California",
-          "household": "1117",
-          "notes": "Parents and birthplace before confirming; Birth Year: 1908",
+          "id": "record-1778164158642-z7l27e",
+          "year": "1880",
+          "name": "Annie S. Rialon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 17; Page: 23",
+          "notes": "Dwelling Number: 207; Race: White; Gender: Female; Age: 9; Birth Year: Abt 1871; Relation to Head of House: Daughter; Marital Status: Single; Occupation: At School; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
           "bookmarked": false,
-          "highlighted": true
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-jbingv",
+          "year": "1880",
+          "name": "Laura A. Rialon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 18; Page: 23",
+          "notes": "Dwelling Number: 207; Race: White; Gender: Female; Age: 6; Birth Year: Abt 1874; Relation to Head of House: Daughter; Marital Status: Single; Occupation: At School; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-tkc2oo",
+          "year": "1880",
+          "name": "Thomas J. Dossett",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 19; Page: 23",
+          "notes": "Dwelling Number: 208; Race: White; Gender: Male; Age: 36; Birth Year: Abt 1844; Relation to Head of House: Self (Head); Marital Status: Married; Occupation: Laborer; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-uorgyb",
+          "year": "1880",
+          "name": "Ida K. Dossett",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 20; Page: 23",
+          "notes": "Dwelling Number: 208; Race: White; Gender: Female; Age: 28; Birth Year: Abt 1852; Relation to Head of House: Wife; Marital Status: Married; Occupation: Keeping House; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-dorydj",
+          "year": "1880",
+          "name": "Lewis E. Dossett",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 21; Page: 23",
+          "notes": "Dwelling Number: 208; Race: White; Gender: Male; Age: 6; Birth Year: Abt 1874; Relation to Head of House: Son; Marital Status: Single; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-qcpqsy",
+          "year": "1880",
+          "name": "Howard S. Dossett",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 22; Page: 23",
+          "notes": "Dwelling Number: 208; Race: White; Gender: Male; Age: 2; Birth Year: Abt 1878; Relation to Head of House: Son; Marital Status: Single; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-6j81cx",
+          "year": "1880",
+          "name": "Sylvanus B. Dossett",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 23; Page: 23",
+          "notes": "Dwelling Number: 209; Race: White; Gender: Male; Age: 78; Birth Year: Abt 1802; Relation to Head of House: Father; Marital Status: Married; Occupation: Cooper; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-fbbm2u",
+          "year": "1880",
+          "name": "Patience Dossett",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 24; Page: 23",
+          "notes": "Dwelling Number: 209; Race: White; Gender: Female; Age: 73; Birth Year: Abt 1807; Relation to Head of House: Mother; Marital Status: Married; Occupation: Keeping House; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-9ttx0u",
+          "year": "1880",
+          "name": "Alvin E. Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 25; Page: 23",
+          "notes": "Dwelling Number: 210; Race: White; Gender: Male; Age: 32; Birth Year: Abt 1848; Relation to Head of House: Self (Head); Marital Status: Married; Occupation: Section Master; Birthplace: Massachusetts; Father's Birthplace: Massachusetts; Mother's Birthplace: Massachusetts",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-vits0k",
+          "year": "1880",
+          "name": "Sarah E. Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 26; Page: 23",
+          "notes": "Dwelling Number: 210; Race: White; Gender: Female; Age: 30; Birth Year: Abt 1850; Relation to Head of House: Wife; Marital Status: Married; Occupation: Keeping House; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-0z91sd",
+          "year": "1880",
+          "name": "Charles Wesley Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 27; Page: 23",
+          "notes": "Dwelling Number: 210; Race: White; Gender: Male; Age: 9; Birth Year: Abt 1871; Relation to Head of House: Son; Marital Status: Single; Occupation: At School; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Massachusetts; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-lj1p7u",
+          "year": "1880",
+          "name": "Willard Alvin Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 28; Page: 23",
+          "notes": "Dwelling Number: 210; Race: White; Gender: Male; Age: 7; Birth Year: Abt 1873; Relation to Head of House: Son; Marital Status: Single; Occupation: At School; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Massachusetts; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-uvxyb6",
+          "year": "1880",
+          "name": "Jennie E. Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 29; Page: 23",
+          "notes": "Dwelling Number: 210; Race: White; Gender: Female; Age: 4; Birth Year: Abt 1876; Relation to Head of House: Daughter; Marital Status: Single; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Massachusetts; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-lto43r",
+          "year": "1880",
+          "name": "Samuel Banks",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 30; Page: 23",
+          "notes": "Dwelling Number: 211; Race: White; Gender: Male; Age: 61; Birth Year: Abt 1819; Relation to Head of House: Self (Head); Marital Status: Widower; Occupation: Lumberman; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-aez20o",
+          "year": "1880",
+          "name": "Hannah Hobson",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 31; Page: 23",
+          "notes": "Dwelling Number: 211; Race: White; Gender: Female; Age: 81; Birth Year: Abt 1799; Relation to Head of House: Step Mother; Marital Status: Widowed; Occupation: Keeping House; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-sbkgxd",
+          "year": "1880",
+          "name": "Charles L. Moore",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 32; Page: 23",
+          "notes": "Dwelling Number: 211; Race: White; Gender: Male; Age: 21; Birth Year: Abt 1859; Marital Status: Single; Occupation: Works In Saw Mill; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-o1k0l8",
+          "year": "1880",
+          "name": "Stephen H. Cousins",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 33; Page: 23",
+          "notes": "Dwelling Number: 212; Race: White; Gender: Male; Age: 34; Birth Year: Abt 1846; Relation to Head of House: Self (Head); Marital Status: Married; Occupation: Grocer; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-7v291x",
+          "year": "1880",
+          "name": "Alma M. Cousins",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 34; Page: 23",
+          "notes": "Dwelling Number: 212; Race: White; Gender: Female; Age: 32; Birth Year: Abt 1848; Relation to Head of House: Wife; Marital Status: Married; Occupation: Keeping House; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778164158642-5t5a8b",
+          "year": "1880",
+          "name": "William L. Cousins",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Line: 35; Page: 23",
+          "notes": "Dwelling Number: 212; Race: White; Gender: Male; Age: 9; Birth Year: Abt 1871; Relation to Head of House: Son; Marital Status: Single; Occupation: At School; Attended School: Yes; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Maine",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-ij4lw4",
+          "year": "1900",
+          "name": "Alvin E Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Head; Family: 1; Line: 1; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Feb; Birth Month: 1848; Birth Year: 52; Age: M; Marital Status: 30; Number of Children Living: Massachusetts; Birthplace: Massachusetts; Father's Birthplace: Massachusetts; Mother's Birthplace: Watchman; Immigration Year: yes; Years in US: yes; Naturalization: yes; Occupation: O F F",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-3jsp20",
+          "year": "1900",
+          "name": "Sarah E Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Wife; Family: 1; Line: 2; Page: 15",
+          "notes": "Street: Steep Falls; Race: W F; Gender: Sep; Birth Month: 1849; Birth Year: 50; Age: M; Marital Status: 30; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Maine; Immigration Year: yes; Years in US: yes; Naturalization: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-cby96s",
+          "year": "1900",
+          "name": "Edwina B Fuller",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Daughter; Family: 1; Line: 3; Page: 15",
+          "notes": "Street: Steep Falls; Race: W F; Gender: July; Birth Month: 1884; Birth Year: 15; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: at school; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-kpyjgj",
+          "year": "1900",
+          "name": "Thomas J Dowth",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Head; Family: 2; Line: 4; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Feb; Birth Month: 1843; Birth Year: 57; Age: M; Marital Status: 27; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: Day laborer; Immigration Year: yes; Years in US: yes; Naturalization: yes; Occupation: O F H",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-09gy9y",
+          "year": "1900",
+          "name": "Ida R Dowth",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Wife; Family: 2; Line: 5; Page: 15",
+          "notes": "Street: Steep Falls; Race: W F; Gender: Jan; Birth Month: 1852; Birth Year: 48; Age: M; Marital Status: 27; Years Married: 3; Number of Children Born: 3; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Maine; Immigration Year: yes; Years in US: yes; Naturalization: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-llzfqj",
+          "year": "1900",
+          "name": "Lewis E Dowth",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Son; Family: 2; Line: 6; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Mar; Birth Month: 1874; Birth Year: 26; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Day laborer; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-t7mvnt",
+          "year": "1900",
+          "name": "Howard S Dowth",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Son; Family: 2; Line: 7; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Dec; Birth Month: 1877; Birth Year: 22; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: laborer saw mill; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-zj1027",
+          "year": "1900",
+          "name": "Jesse H Dowth",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Son; Family: 2; Line: 8; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Aug; Birth Month: 1880; Birth Year: 19; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: at school; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-k7d44w",
+          "year": "1900",
+          "name": "Eben G Hodgdon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Head; Family: 3; Line: 9; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Mar; Birth Month: 1846; Birth Year: 54; Age: M; Marital Status: 33; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Maine; Mother's Birthplace: laborer saw mill; Immigration Year: yes; Years in US: yes; Naturalization: yes; Occupation: O F H",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-0j2ajv",
+          "year": "1900",
+          "name": "Lydia D Hodgdon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Wife; Family: 3; Line: 10; Page: 15",
+          "notes": "Street: Steep Falls; Race: W F; Gender: May; Birth Month: 1845; Birth Year: 55; Age: M; Marital Status: 33; Years Married: 6; Number of Children Born: 6; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Maine; Immigration Year: yes; Years in US: yes; Naturalization: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-hpp8j4",
+          "year": "1900",
+          "name": "Herbert W Hodgdon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Son; Family: 3; Line: 11; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Apr; Birth Month: 1870; Birth Year: 30; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: Day laborer; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-09t00y",
+          "year": "1900",
+          "name": "Willard J Hodgdon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Son; Family: 3; Line: 12; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Oct; Birth Month: 1875; Birth Year: 24; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: River driver; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-p4q8tt",
+          "year": "1900",
+          "name": "Ernest E Hodgdon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Son; Family: 3; Line: 13; Page: 15",
+          "notes": "Street: Steep Falls; Race: W M; Gender: Mar; Birth Month: 1881; Birth Year: 19; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: laborer sawmill; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
+        },
+        {
+          "id": "record-1778167360370-yj22h8",
+          "year": "1900",
+          "name": "Alice M Hodgdon",
+          "location": "Maine, Cumberland, Standish",
+          "household": "Relationship: Daughter; Family: 3; Line: 14; Page: 15",
+          "notes": "Street: Steep Falls; Race: W F; Gender: Dec; Birth Month: 1883; Birth Year: 16; Age: S; Number of Children Born: Maine; Number of Children Living: Maine; Birthplace: Maine; Father's Birthplace: at school; Mother's Birthplace: yes; Immigration Year: yes; Years in US: yes",
+          "bookmarked": false,
+          "highlighted": false
         }
       ]
     }
