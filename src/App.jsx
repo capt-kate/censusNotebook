@@ -4993,18 +4993,6 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
         <main style={mainStyle}>
           <aside style={sidebarStyle}>
-            <nav style={cardStyle}>
-              <h2 style={sectionTitleStyle}>Tasks</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <a style={navLinkStyle} href="#projects">Create a New Project</a>
-                <a style={navLinkStyle} href="#/project-data">View Records by Project</a>
-                <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
-                <a style={navLinkStyle} href="#/favorites">View Favorites</a>
-                <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
-                <a style={navLinkStyle} href="#/help">Help</a>
-              </div>
-            </nav>
-
             <section id="projects" style={cardStyle}>
               <h2 style={sectionTitleStyle}>Projects</h2>
 
@@ -5047,6 +5035,16 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               </button>
             </section>
 
+            <nav style={cardStyle}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <a style={navLinkStyle} href="#/project-data">View Records by Project</a>
+                <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
+                <a style={navLinkStyle} href="#/favorites">View Favorites</a>
+                <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
+                <a style={navLinkStyle} href="#/help">Help</a>
+              </div>
+            </nav>
+
             <section style={cardStyle}>
               <h2 style={sectionTitleStyle}>Analysis</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -5073,6 +5071,28 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
                 >
                   Duplicates
+                </a>
+              </div>
+            </section>
+
+            <section style={cardStyle}>
+              <h2 style={sectionTitleStyle}>Resources</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <a
+                  href="https://www.cyndislist.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ ...navLinkStyle, display: "block" }}
+                >
+                  Cyndi&apos;s List
+                </a>
+                <a
+                  href="https://www.familysearch.org/"
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ ...navLinkStyle, display: "block" }}
+                >
+                  FamilySearch
                 </a>
               </div>
             </section>
@@ -5381,6 +5401,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                 </label>
               </div>
             </section>
+
           </section>
         </main>
         <CopyrightFooter />
