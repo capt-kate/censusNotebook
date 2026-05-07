@@ -3548,42 +3548,97 @@ export default function App() {
                         {result.dwellingNumber ? ` | Dwelling: ${result.dwellingNumber}` : ""}
                       </p>
                       <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                        <table style={{ width: "100%", minWidth: "720px", borderCollapse: "collapse", fontSize: "14px" }}>
                           <thead>
                             <tr style={{ background: "#f3f4f6" }}>
                               <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
                               <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Relationship</th>
                               <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Age</th>
-                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Place</th>
-                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
-                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Notes</th>
+                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {result.members.map((member) => (
-                              <tr
-                                key={member.id}
-                                style={{ background: member.id === result.match.id ? "#dbeafe" : member.highlighted ? "#fef9c3" : "white" }}
-                              >
-                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
-                                  <a
-                                    href={`#/project-data?project=${result.projectId}&record=${member.id}`}
-                                    style={{ color: "#1d4ed8", textDecoration: "none" }}
-                                  >
-                                    {member.name || "Unnamed record"}
-                                  </a>
-                                </td>
-                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(member) || "N/A"}</td>
-                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(member.notes, ["Age"]) || "N/A"}</td>
-                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                  {getNoteValue(member.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "N/A"}
-                                </td>
-                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                  {getNoteValue(member.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}
-                                </td>
-                                <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{member.notes}</td>
-                              </tr>
-                            ))}
+                            {result.members.map((member) => {
+                              const isEditing = editingSearchRecordId === member.id;
+                              const rowBackground = member.highlighted ? "#fef9c3" : member.id === result.match.id ? "#dbeafe" : "white";
+
+                              return (
+                                <tr key={member.id} style={{ background: rowBackground }}>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
+                                    {isEditing ? (
+                                      <input
+                                        value={editingSearchRecordDraft.name}
+                                        onChange={(event) =>
+                                          setEditingSearchRecordDraft((prev) => ({ ...prev, name: event.target.value }))
+                                        }
+                                        style={{ ...inputStyle, minWidth: "180px" }}
+                                      />
+                                    ) : (
+                                      <a
+                                        href={`#/project-data?project=${result.projectId}&record=${member.id}`}
+                                        style={{ color: "#1d4ed8", textDecoration: "none" }}
+                                      >
+                                        {member.name || "Unnamed record"}
+                                      </a>
+                                    )}
+                                  </td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(member) || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(member.notes, ["Age"]) || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
+                                    <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                                      {isEditing ? (
+                                        <>
+                                          <button
+                                            onClick={() => saveEditingSearchRecord(member.projectId, member.id)}
+                                            style={buttonStyle}
+                                          >
+                                            Save
+                                          </button>
+                                          <button onClick={cancelEditingSearchRecord} style={lightButtonStyle}>
+                                            Cancel
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button
+                                            onClick={() => startEditingSearchRecord(member)}
+                                            aria-label="Edit record"
+                                            title="Edit"
+                                            style={actionButtonStyle}
+                                          >
+                                            ✎
+                                          </button>
+                                          <button
+                                            onClick={() => updateRecord(member.projectId, member.id, { bookmarked: !member.bookmarked })}
+                                            aria-label={member.bookmarked ? "Remove favorite" : "Mark as favorite"}
+                                            title={member.bookmarked ? "Remove favorite" : "Favorite"}
+                                            style={actionButtonStyle}
+                                          >
+                                            {member.bookmarked ? "★" : "☆"}
+                                          </button>
+                                          <button
+                                            onClick={() => updateRecord(member.projectId, member.id, { highlighted: !member.highlighted })}
+                                            aria-label={member.highlighted ? "Remove highlight" : "Highlight record"}
+                                            title={member.highlighted ? "Remove highlight" : "Highlight"}
+                                            style={highlightActionButtonStyle(member.highlighted)}
+                                          >
+                                            H
+                                          </button>
+                                          <button
+                                            onClick={() => deleteRecord(member.projectId, member.id)}
+                                            aria-label="Delete record"
+                                            title="Delete"
+                                            style={{ ...actionButtonStyle, color: "#dc2626" }}
+                                          >
+                                            X
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
