@@ -560,6 +560,7 @@ export const censusTemplates = [
       { key: "residenceCountyIn1935", label: "Residence County in 1935" },
       { key: "residenceStateIn1935", label: "Residence State in 1935" },
       { key: "liveOnFarm", label: "Live on Farm" },
+      { key: "employedForPay", label: "Employed for pay" },
       { key: "publicEmergencyWork", label: "Public Emergency Work" },
       { key: "seekingWork", label: "Seeking Work" },
       { key: "employmentHistory", label: "Employment History" },

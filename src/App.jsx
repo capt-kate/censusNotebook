@@ -5235,7 +5235,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                         setSearchResultsCleared(false);
                       }}
                     />
-                    Bookmarked
+                    Favorites
                   </label>
 
                   <button
