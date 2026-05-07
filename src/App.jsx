@@ -689,8 +689,13 @@ function CensusTemplatePage({
 
         <section style={{ ...cardStyle, padding: "12px", marginBottom: "12px" }}>
           {template.note && (
-            <div style={{ background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: "10px", padding: "16px", marginBottom: "18px", color: "#78350f", lineHeight: 1.6, whiteSpace: "pre-line" }}>
-              {template.note}
+            <div style={{ background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: "10px", padding: "16px", marginBottom: "18px", color: "#78350f", lineHeight: 1.6, textAlign: "left", whiteSpace: "pre-line" }}>
+              <h3 style={{ margin: "0 0 8px", color: "#78350f", fontSize: "18px" }}>
+                About the {template.year} Census
+              </h3>
+              <p style={{ margin: 0 }}>
+                {template.note}
+              </p>
               {template.noteLink && (
                 <p style={{ margin: "12px 0 0" }}>
                   {template.noteLink.prefix}
