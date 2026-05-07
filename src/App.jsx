@@ -1163,6 +1163,7 @@ export default function App() {
     field: "surname",
     direction: "asc",
   });
+  const [selectedProjectRecordIds, setSelectedProjectRecordIds] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
   const [customTemplateDraft, setCustomTemplateDraft] = useState({
@@ -1720,6 +1721,47 @@ export default function App() {
           : project
       ),
     }));
+  }
+
+  function toggleSelectedProjectRecord(recordId, checked) {
+    setSelectedProjectRecordIds((prev) => {
+      if (checked) return prev.includes(recordId) ? prev : [...prev, recordId];
+      return prev.filter((candidate) => candidate !== recordId);
+    });
+  }
+
+  async function deleteSelectedProjectRecords() {
+    const selectedRecordIdSet = new Set(selectedProjectRecordIds);
+    const selectedRecords = data.projects.flatMap((project) =>
+      project.records
+        .filter((record) => selectedRecordIdSet.has(record.id))
+        .map((record) => ({ projectId: project.id, recordId: record.id }))
+    );
+
+    if (selectedRecords.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Delete ${selectedRecords.length} selected ${selectedRecords.length === 1 ? "record" : "records"}? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    if (apiConnected) {
+      try {
+        await Promise.all(selectedRecords.map((record) => api.deleteRecord(record.recordId)));
+      } catch {
+        setApiConnected(false);
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
+      }
+    }
+
+    setData((prev) => ({
+      ...prev,
+      projects: prev.projects.map((project) => ({
+        ...project,
+        records: project.records.filter((record) => !selectedRecordIdSet.has(record.id)),
+      })),
+    }));
+    setSelectedProjectRecordIds([]);
   }
 
   function startEditingSearchRecord(record) {
@@ -2766,6 +2808,7 @@ export default function App() {
         return compareRecordValues(left.name, right.name);
       });
     };
+    const selectedProjectRecordIdSet = new Set(selectedProjectRecordIds);
 
     return (
       <div style={pageStyle}>
@@ -2814,13 +2857,30 @@ export default function App() {
             </section>
 
             <section style={cardStyle}>
-              <h2 style={sectionTitleStyle}>Records</h2>
-              <input
-                value={projectDataFilter}
-                onChange={(event) => setProjectDataFilter(event.target.value)}
-                placeholder="Filter name, location, note..."
-                style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
-              />
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" }}>
+                <div>
+                  <h2 style={sectionTitleStyle}>Records</h2>
+                  <input
+                    value={projectDataFilter}
+                    onChange={(event) => setProjectDataFilter(event.target.value)}
+                    placeholder="Filter name, location, note..."
+                    style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
+                  />
+                </div>
+                <button
+                  onClick={deleteSelectedProjectRecords}
+                  disabled={selectedProjectRecordIds.length === 0}
+                  style={{
+                    ...buttonStyle,
+                    background: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
+                    borderColor: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
+                    cursor: selectedProjectRecordIds.length === 0 ? "not-allowed" : "pointer",
+                    marginTop: "2px",
+                  }}
+                >
+                  Delete Selected{selectedProjectRecordIds.length > 0 ? ` (${selectedProjectRecordIds.length})` : ""}
+                </button>
+              </div>
               <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
                 Click the header to sort by Surname, Location, or Page.
               </p>
@@ -2947,7 +3007,18 @@ export default function App() {
                               )}
                             </td>
                             <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
-                              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "6px", alignItems: "flex-start" }}>
+                                {!isEditing && (
+                                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#4b5563", fontWeight: "700" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedProjectRecordIdSet.has(record.id)}
+                                      onChange={(event) => toggleSelectedProjectRecord(record.id, event.target.checked)}
+                                    />
+                                    Select
+                                  </label>
+                                )}
+                                <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                                 {isEditing ? (
                                   <>
                                     <button
@@ -2996,6 +3067,7 @@ export default function App() {
                                     </button>
                                   </>
                                 )}
+                                </div>
                               </div>
                             </td>
                           </tr>
