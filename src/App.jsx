@@ -4096,6 +4096,30 @@ export default function App() {
             </p>
 
             <section style={helpSectionStyle}>
+              <h3>Basic Workflow</h3>
+              <ol>
+                <li>Convert the census image into text. Often, using a spreadsheet helps.</li>
+                <li>Check that you have the correct project chosen.</li>
+                <li>
+                  Choose the census year you want to enter. On the template page, copy/paste the data
+                  from your spreadsheet or import it in CSV format.
+                </li>
+                <li>
+                  Check the data to make sure it lines up with the table headings. If it does not,
+                  click <strong>Clear All</strong>, fix the source data, then copy/paste or import again.
+                </li>
+                <li>
+                  If everything lines up, click <strong>Add Filled Rows to Project</strong>. Your data
+                  is now added to the project and ready for analysis.
+                </li>
+                <li>
+                  To view what you entered, click <strong>View Census Records by Year</strong>. You can
+                  edit individual records after they have been added.
+                </li>
+              </ol>
+            </section>
+
+            <section style={helpSectionStyle}>
               <h3>Paste Data from a Spreadsheet</h3>
               <p>If you already have data in a spreadsheet:</p>
               <ul>
@@ -4115,7 +4139,7 @@ export default function App() {
                 <li>Navigate to your file.</li>
                 <li>Click <strong>Open</strong>.</li>
               </ul>
-              <p>The data is loaded directly into the template fields, ready for review and editing.</p>
+              <p>The data is loaded directly into the template fields. Click <strong>Paste Data into Template</strong> to save your records to the project.</p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -4129,41 +4153,15 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Editing and Reviewing Data</h3>
-              <p>Before saving your data to a project, you can:</p>
-              <ul>
-                <li>Edit any field.</li>
-                <li>Correct spelling or formatting.</li>
-                <li>Add or remove rows as needed.</li>
-              </ul>
-              <p>You are working in a staging area, so nothing is saved until you click <strong>Add Filled Rows to Project</strong>.</p>
-            </section>
-
-            <section style={helpSectionStyle}>
               <h3>Clearing the Template</h3>
               <p>To remove all current data:</p>
               <ul>
                 <li>Click <strong>Clear All</strong>.</li>
               </ul>
               <p>
-                <strong>Warning:</strong> This action cannot be undone. Make sure you want to remove
-                all data before proceeding.
+                This clears the data from the template and doesn&apos;t affect your project. This is
+                useful if you want to remove what you&apos;ve imported and bring in fresh data.
               </p>
-            </section>
-
-            <section style={helpSectionStyle}>
-              <h3>Working with Mixed Data</h3>
-              <p>You can continue adding records even if they come from:</p>
-              <ul>
-                <li>Different locations.</li>
-                <li>Different households within the same year.</li>
-              </ul>
-              <p>Use filters to focus your view:</p>
-              <ul>
-                <li>Filter by name.</li>
-                <li>Filter by location.</li>
-              </ul>
-              <p>This allows you to work flexibly without losing organization.</p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -4176,21 +4174,40 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Attaching Source Documents</h3>
+              <h3>Saving Source Documents</h3>
               <p>
-                For deeper research and verification, you can connect source documents to a census
-                year from the <strong>Collect Census Images</strong> page. These files are not saved
-                inside Census Notebook. They are copied to a local Sources folder that you create and choose.
+                For deeper research and verification, keep copies of your original census images or
+                PDFs organized with your genealogy files.
               </p>
-              <p>Supported formats:</p>
               <ul>
-                <li>JPG.</li>
-                <li>PNG.</li>
-                <li>PDF.</li>
+                <li>From the Home page, click <strong>Collect Census Images</strong>.</li>
+                <li>Navigate to the image you want to include.</li>
+                <li>
+                  Enter the path and naming convention you want. See{" "}
+                  <a href="#/help/sources-attachments">Sources and Attachments</a>.
+                </li>
               </ul>
               <p>
-                Keep that Sources folder with your other genealogy files and include it in your
-                normal backup routine.
+                These source files are not attached to your Census Notebook records and are not saved
+                inside the app. They stay in your local Sources folder.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Custom Templates</h3>
+              <p>Custom templates give you flexibility on the data you collect.</p>
+              <ul>
+                <li>
+                  Add your own templates for records that do not match the built-in census years,
+                  such as state census records or military records.
+                </li>
+                <li>Create your own template if a built-in template does not fit your needs.</li>
+                <li>Custom template buttons are automatically added to the Home page.</li>
+              </ul>
+              <p>
+                <strong>Note:</strong> Custom templates are stored in your current browser on your
+                current device. Opening Census Notebook in another browser, in incognito mode, or on
+                another device will not show your templates or records.
               </p>
             </section>
 
@@ -4206,7 +4223,7 @@ export default function App() {
               <p>This is especially helpful if you prefer doing data entry offline or in bulk.</p>
               <p>
                 <strong>Hint:</strong> You can create a custom template for an existing census year
-                when you are having issues matching the provided fields.
+                if you are having issues matching the provided fields.
               </p>
             </section>
           </article>
