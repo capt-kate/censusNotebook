@@ -371,6 +371,53 @@ function getRecordDetailFieldValue(record, label) {
   return getRecordDetailFieldMap(record).get(String(label || "").toLowerCase())?.value || "";
 }
 
+function updateRecordDetailFields(record, detailFields) {
+  const pendingFields = new Map(
+    Object.values(detailFields || {}).map((field) => [
+      normalizeFieldLabel(field.label),
+      { label: field.label, value: String(field.value || "").trim() },
+    ])
+  );
+  const handledKeys = new Set();
+
+  const updateText = (text) =>
+    String(text || "")
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const separatorIndex = part.indexOf(":");
+        if (separatorIndex === -1) return part;
+
+        const label = part.slice(0, separatorIndex).trim();
+        const key = normalizeFieldLabel(label);
+        const field = pendingFields.get(key);
+        if (!field) return part;
+
+        handledKeys.add(key);
+        return field.value ? `${label}: ${field.value}` : "";
+      })
+      .filter(Boolean)
+      .join("; ");
+
+  const household = updateText(record.household);
+  const noteParts = updateText(record.notes)
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  pendingFields.forEach((field, key) => {
+    if (!handledKeys.has(key) && field.value) {
+      noteParts.push(`${field.label}: ${field.value}`);
+    }
+  });
+
+  return {
+    household,
+    notes: noteParts.join("; "),
+  };
+}
+
 function updateNoteValue(notes, labels, fallbackLabel, value) {
   const cleanedValue = String(value || "").trim();
   const lowerLabels = labels.map((label) => label.toLowerCase());
@@ -1290,6 +1337,7 @@ export default function App() {
     location: "",
     household: "",
     notes: "",
+    detailFields: {},
   });
   const [newRecord, setNewRecord] = useState({
     year: "",
@@ -1862,6 +1910,12 @@ export default function App() {
       location: record.location || "",
       household: record.household || "",
       notes: record.notes || "",
+      detailFields: Object.fromEntries(
+        getRecordDetailFieldEntries(record).map((entry) => [
+          normalizeFieldLabel(entry.label),
+          { label: entry.label, value: entry.value },
+        ])
+      ),
     });
   }
 
@@ -1874,14 +1928,22 @@ export default function App() {
       location: "",
       household: "",
       notes: "",
+      detailFields: {},
     });
   }
 
   async function saveEditingSearchRecord(projectId, recordId) {
-    const { birthYear, ...recordDraft } = editingSearchRecordDraft;
-    await updateRecord(projectId, recordId, {
+    const { birthYear, detailFields, ...recordDraft } = editingSearchRecordDraft;
+    const recordWithBirthYear = {
       ...recordDraft,
       notes: updateNoteValue(recordDraft.notes, ["Birth Year", "Estimated Birth Year", "Year of Birth", "Birth"], "Birth Year", birthYear),
+    };
+    const recordWithDetails = updateRecordDetailFields(recordWithBirthYear, detailFields);
+
+    await updateRecord(projectId, recordId, {
+      ...recordDraft,
+      household: recordWithDetails.household,
+      notes: recordWithDetails.notes,
     });
     cancelEditingSearchRecord();
   }
@@ -2222,6 +2284,11 @@ export default function App() {
       href: "#/help/manual-records",
       label: "Adding Records Manually",
       description: "Type a single record from the Home page or enter rows directly in a census template.",
+    },
+    {
+      href: "#/help/modifying-records",
+      label: "Modifying Records",
+      description: "Fine-tune imported records and update census fields after they are added.",
     },
     {
       href: "#/help/import-scope",
@@ -2578,7 +2645,29 @@ export default function App() {
                           </td>
                           {recordsByYearFieldLabels.map((label) => (
                             <td key={label} style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                              {getRecordDetailFieldValue(record, label) || "N/A"}
+                              {isEditing ? (
+                                <input
+                                  value={
+                                    editingSearchRecordDraft.detailFields[normalizeFieldLabel(label)]?.value ??
+                                    getRecordDetailFieldValue(record, label)
+                                  }
+                                  onChange={(event) =>
+                                    setEditingSearchRecordDraft((prev) => ({
+                                      ...prev,
+                                      detailFields: {
+                                        ...prev.detailFields,
+                                        [normalizeFieldLabel(label)]: {
+                                          label,
+                                          value: event.target.value,
+                                        },
+                                      },
+                                    }))
+                                  }
+                                  style={{ ...inputStyle, minWidth: "130px" }}
+                                />
+                              ) : (
+                                getRecordDetailFieldValue(record, label) || "N/A"
+                              )}
                             </td>
                           ))}
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
@@ -4295,6 +4384,45 @@ export default function App() {
                 This is best when you are entering a full household, multiple rows from a page, or data
                 that should line up with the official census fields for that year.
               </p>
+            </section>
+          </article>
+          <CopyrightFooter />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/modifying-records") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Modifying Records</h1>
+            {renderHelpTopicControls()}
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Fine-tune records after import</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              After you import your records, you can continue to fine-tune your data.
+            </p>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>Edit Imported Records</h3>
+              <p>
+                The easiest place to edit imported census fields is the{" "}
+                <a href="#/records-by-year">View Census Records by Year</a> page.
+              </p>
+              <ul>
+                <li>Choose the census year you want to review.</li>
+                <li>Click the edit button for the record you want to change.</li>
+                <li>Update any field that needs correction.</li>
+                <li>Click <strong>Save</strong>.</li>
+              </ul>
+              <p>Edits automatically appear in other views.</p>
             </section>
           </article>
           <CopyrightFooter />
