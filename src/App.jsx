@@ -282,6 +282,66 @@ function getNoteValue(notes, labels) {
   return "";
 }
 
+function normalizeFieldLabel(label) {
+  return String(label || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+const HIDDEN_PROJECT_DATA_FIELD_LABELS = new Set(
+  [
+    "Free white males 16+",
+    "Free white males under 16",
+    "Free white females",
+    "TOTAL",
+    "Family",
+    "Free White Persons - Males Under 10",
+    "Free White Persons - Males 10 to 15",
+    "Free White Persons - Males 16 to 25",
+    "Free White Persons - Males 26 to 44",
+    "Free White Persons - Males Over 45",
+    "Free White Persons - Females Under 10",
+    "Free White Persons - Females 10 to 15",
+    "Free White Persons - Females 16 to 25",
+    "Free White Persons - Females 26 to 44",
+    "Free White Persons - Females Over 45",
+    "# Engaged in Agriculture",
+    "Total Free White Persons",
+    "Males Under 5",
+    "Males 5 to under 10",
+    "Males 10 to under 15",
+    "Males 15 to under 20",
+    "Males 20 to under 30",
+    "Males 30 to under 40",
+    "Males 40 to under 50",
+    "Males 50 to under 60",
+    "Males 60 to under 70",
+    "Males 70 to under 80",
+    "Females 5 to under 10",
+    "Females 10 to under 15",
+    "Females 15 to under 20",
+    "Females 20 to under 30",
+    "Females 30 to under 40",
+    "Females 40 to under 50",
+    "Females 50 to under 60",
+    "Females 60 to under 70",
+    "Real Estate Value",
+    "Personal Estate Value",
+    "Veteran",
+    "Seeking Work",
+    "Quest #",
+    "Occupation Category",
+    "Worked Last Week",
+    "Employment Status",
+    "Hours Worked",
+    "Worker Class",
+    "Same House",
+    "School Attendance",
+    "Weeks Worked",
+    "Income Last Year",
+    "Other Income",
+    "Supplemental Income",
+  ].map(normalizeFieldLabel)
+);
+
 function getRecordDetailFieldEntries(record) {
   return [record.household, record.notes]
     .flatMap((value) => String(value || "").split(";"))
@@ -2835,7 +2895,9 @@ export default function App() {
           )
         )
       ).values()
-    ).sort((left, right) => {
+    )
+      .filter((label) => !HIDDEN_PROJECT_DATA_FIELD_LABELS.has(normalizeFieldLabel(label)))
+      .sort((left, right) => {
       const leftOrder = templateFieldOrder.get(left.toLowerCase()) ?? 9999;
       const rightOrder = templateFieldOrder.get(right.toLowerCase()) ?? 9999;
       if (leftOrder !== rightOrder) return leftOrder - rightOrder;
