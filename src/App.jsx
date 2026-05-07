@@ -661,13 +661,35 @@ function HelpIconLink() {
   );
 }
 
-function CopyrightFooter() {
+function CopyrightFooter({ actionMessage = "" }) {
   const currentHash = window.location.hash || "#/";
   const isHelpPage = currentHash === "#/help" || currentHash.startsWith("#/help/");
 
   return (
     <>
       {!isHelpPage && <HelpIconLink />}
+      {actionMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: "16px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 30,
+            background: "#111827",
+            color: "white",
+            borderRadius: "999px",
+            padding: "8px 14px",
+            fontSize: "13px",
+            fontWeight: "700",
+            boxShadow: "0 10px 25px rgba(15, 23, 42, 0.22)",
+          }}
+        >
+          {actionMessage}
+        </div>
+      )}
       <footer style={{ marginTop: "24px", padding: "18px", textAlign: "center", color: "#6b7280", fontSize: "14px" }}>
         Copyright {new Date().getFullYear()}{" "}
         <a href="mailto:cousin.kate@olddeadrelatives.com" style={{ color: "inherit", fontWeight: "700" }}>
@@ -1284,6 +1306,7 @@ export default function App() {
   const [currentPage, setCurrentPage] = useState(window.location.hash || "#/");
   const [apiConnected, setApiConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Loading your local data...");
+  const [recordActionMessage, setRecordActionMessage] = useState("");
   const [query, setQuery] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
@@ -1831,6 +1854,14 @@ export default function App() {
           : project
       ),
     }));
+  }
+
+  async function updateRecordAction(projectId, recordId, changes, message = "Updating...") {
+    setRecordActionMessage(message);
+    await updateRecord(projectId, recordId, changes);
+    window.setTimeout(() => {
+      setRecordActionMessage((current) => (current === message ? "" : current));
+    }, 700);
   }
 
   async function deleteRecord(projectId, recordId) {
@@ -2405,7 +2436,7 @@ export default function App() {
               <button onClick={saveCustomTemplate} style={buttonStyle}>Save Template</button>
             </div>
           </section>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -2469,7 +2500,7 @@ export default function App() {
               here once the template data is added.
             </p>
           </section>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -2698,7 +2729,7 @@ export default function App() {
                                     ✎
                                   </button>
                                   <button
-                                    onClick={() => updateRecord(record.projectId, record.id, { bookmarked: !record.bookmarked })}
+                                    onClick={() => updateRecordAction(record.projectId, record.id, { bookmarked: !record.bookmarked }, "Updating favorite...")}
                                     aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
                                     title={record.bookmarked ? "Remove favorite" : "Favorite"}
                                     style={actionButtonStyle}
@@ -2706,7 +2737,7 @@ export default function App() {
                                     {record.bookmarked ? "★" : "☆"}
                                   </button>
                                   <button
-                                    onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                    onClick={() => updateRecordAction(record.projectId, record.id, { highlighted: !record.highlighted }, "Updating highlight...")}
                                     aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
                                     title={record.highlighted ? "Remove highlight" : "Highlight"}
                                     style={highlightActionButtonStyle(record.highlighted)}
@@ -2741,7 +2772,7 @@ export default function App() {
               </div>
             </section>
           </main>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -2871,7 +2902,7 @@ export default function App() {
                                     ✎
                                   </button>
                                   <button
-                                    onClick={() => updateRecord(record.projectId, record.id, { bookmarked: false })}
+                                    onClick={() => updateRecordAction(record.projectId, record.id, { bookmarked: false }, "Updating favorite...")}
                                     aria-label="Remove favorite"
                                     title="Remove favorite"
                                     style={actionButtonStyle}
@@ -2879,7 +2910,7 @@ export default function App() {
                                     ★
                                   </button>
                                   <button
-                                    onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                    onClick={() => updateRecordAction(record.projectId, record.id, { highlighted: !record.highlighted }, "Updating highlight...")}
                                     aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
                                     title={record.highlighted ? "Remove highlight" : "Highlight"}
                                     style={highlightActionButtonStyle(record.highlighted)}
@@ -2914,7 +2945,7 @@ export default function App() {
               </div>
             </section>
           </main>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -3203,7 +3234,7 @@ export default function App() {
                                       ✎
                                     </button>
                                     <button
-                                      onClick={() => updateRecord(project.id, record.id, { bookmarked: !record.bookmarked })}
+                                      onClick={() => updateRecordAction(project.id, record.id, { bookmarked: !record.bookmarked }, "Updating favorite...")}
                                       aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
                                       title={record.bookmarked ? "Remove favorite" : "Favorite"}
                                       style={actionButtonStyle}
@@ -3211,7 +3242,7 @@ export default function App() {
                                       {record.bookmarked ? "★" : "☆"}
                                     </button>
                                     <button
-                                      onClick={() => updateRecord(project.id, record.id, { highlighted: !record.highlighted })}
+                                      onClick={() => updateRecordAction(project.id, record.id, { highlighted: !record.highlighted }, "Updating highlight...")}
                                       aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
                                       title={record.highlighted ? "Remove highlight" : "Highlight"}
                                       style={highlightActionButtonStyle(record.highlighted)}
@@ -3248,7 +3279,7 @@ export default function App() {
               </section>
             ))}
           </main>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -3293,7 +3324,7 @@ export default function App() {
               )}
             </section>
           </main>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -3457,7 +3488,7 @@ export default function App() {
                                         ✎
                                       </button>
                                       <button
-                                        onClick={() => updateRecord(record.projectId, record.id, { bookmarked: !record.bookmarked })}
+                                        onClick={() => updateRecordAction(record.projectId, record.id, { bookmarked: !record.bookmarked }, "Updating favorite...")}
                                         aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
                                         title={record.bookmarked ? "Remove favorite" : "Favorite"}
                                         style={actionButtonStyle}
@@ -3465,7 +3496,7 @@ export default function App() {
                                         {record.bookmarked ? "★" : "☆"}
                                       </button>
                                       <button
-                                        onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                        onClick={() => updateRecordAction(record.projectId, record.id, { highlighted: !record.highlighted }, "Updating highlight...")}
                                         aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
                                         title={record.highlighted ? "Remove highlight" : "Highlight"}
                                         style={highlightActionButtonStyle(record.highlighted)}
@@ -3497,7 +3528,7 @@ export default function App() {
             )}
 
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -3629,7 +3660,7 @@ export default function App() {
             )}
 
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -3770,7 +3801,7 @@ export default function App() {
                                             ✎
                                           </button>
                                           <button
-                                            onClick={() => updateRecord(member.projectId, member.id, { bookmarked: !member.bookmarked })}
+                                            onClick={() => updateRecordAction(member.projectId, member.id, { bookmarked: !member.bookmarked }, "Updating favorite...")}
                                             aria-label={member.bookmarked ? "Remove favorite" : "Mark as favorite"}
                                             title={member.bookmarked ? "Remove favorite" : "Favorite"}
                                             style={actionButtonStyle}
@@ -3778,7 +3809,7 @@ export default function App() {
                                             {member.bookmarked ? "★" : "☆"}
                                           </button>
                                           <button
-                                            onClick={() => updateRecord(member.projectId, member.id, { highlighted: !member.highlighted })}
+                                            onClick={() => updateRecordAction(member.projectId, member.id, { highlighted: !member.highlighted }, "Updating highlight...")}
                                             aria-label={member.highlighted ? "Remove highlight" : "Highlight record"}
                                             title={member.highlighted ? "Remove highlight" : "Highlight"}
                                             style={highlightActionButtonStyle(member.highlighted)}
@@ -3812,7 +3843,7 @@ export default function App() {
             )}
 
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -3920,7 +3951,7 @@ export default function App() {
               )}
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4007,7 +4038,7 @@ export default function App() {
               </ul>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4073,7 +4104,7 @@ export default function App() {
               </p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4169,7 +4200,7 @@ export default function App() {
               </p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4327,7 +4358,7 @@ export default function App() {
               </p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4386,7 +4417,7 @@ export default function App() {
               </p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4425,7 +4456,7 @@ export default function App() {
               <p>Edits automatically appear in other views.</p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4552,7 +4583,7 @@ export default function App() {
               <p>Census Notebook is designed to support both styles, so you can work the way genealogists actually research.</p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4681,7 +4712,7 @@ export default function App() {
               </ul>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4758,7 +4789,7 @@ export default function App() {
               </ul>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4852,7 +4883,7 @@ export default function App() {
               </ul>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -4995,7 +5026,7 @@ export default function App() {
               <p>No single census tells the full story, but together, they form a timeline.</p>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -5113,7 +5144,7 @@ Goal:
 Produce clean, structured data that can be directly imported into a spreadsheet or genealogy app.`}</code>
             </section>
           </article>
-          <CopyrightFooter />
+          <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
       </div>
     );
@@ -5495,7 +5526,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                                     ✎
                                   </button>
                                   <button
-                                    onClick={() => updateRecord(record.projectId, record.id, { bookmarked: !record.bookmarked })}
+                                    onClick={() => updateRecordAction(record.projectId, record.id, { bookmarked: !record.bookmarked }, "Updating favorite...")}
                                     aria-label={record.bookmarked ? "Remove favorite" : "Mark as favorite"}
                                     title={record.bookmarked ? "Remove favorite" : "Favorite"}
                                     style={actionButtonStyle}
@@ -5503,7 +5534,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                                     {record.bookmarked ? "★" : "☆"}
                                   </button>
                                   <button
-                                    onClick={() => updateRecord(record.projectId, record.id, { highlighted: !record.highlighted })}
+                                    onClick={() => updateRecordAction(record.projectId, record.id, { highlighted: !record.highlighted }, "Updating highlight...")}
                                     aria-label={record.highlighted ? "Remove highlight" : "Highlight record"}
                                     title={record.highlighted ? "Remove highlight" : "Highlight"}
                                     style={highlightActionButtonStyle(record.highlighted)}
@@ -5560,7 +5591,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
           </section>
         </main>
-        <CopyrightFooter />
+        <CopyrightFooter actionMessage={recordActionMessage} />
       </div>
     </div>
   );
