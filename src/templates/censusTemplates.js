@@ -615,7 +615,6 @@ export const censusTemplates = [
       { key: "birthplace", label: "Birthplace" },
       { key: "naturalized", label: "Naturalized?" },
       { key: "citizenship", label: "Citizenship" },
-      { key: "occupationLastWeek", label: "Occupation Last Week" },
       { key: "workedLastWeek", label: "Worked Last Week" },
       { key: "seekingWork", label: "Seeking Work" },
       { key: "employmentStatus", label: "Employment Status" },
