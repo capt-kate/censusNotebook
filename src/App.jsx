@@ -342,7 +342,15 @@ const HIDDEN_PROJECT_DATA_FIELD_LABELS = new Set(
   ].map(normalizeFieldLabel)
 );
 
+const HOME_SEARCH_RESULT_LIMIT = 200;
+const PROJECT_RECORD_RENDER_LIMIT = 300;
+const DUPLICATE_BUCKET_LIMIT = 250;
+const recordMetaCache = new WeakMap();
+
 function getRecordDetailFieldEntries(record) {
+  const meta = recordMetaCache.get(record);
+  if (meta?.detailEntries) return meta.detailEntries;
+
   return [record.household, record.notes]
     .flatMap((value) => String(value || "").split(";"))
     .map((part) => {
@@ -356,19 +364,8 @@ function getRecordDetailFieldEntries(record) {
     .filter(Boolean);
 }
 
-function getRecordDetailFieldMap(record) {
-  const fieldMap = new Map();
-
-  getRecordDetailFieldEntries(record).forEach((entry) => {
-    const key = entry.label.toLowerCase();
-    if (!fieldMap.has(key)) fieldMap.set(key, entry);
-  });
-
-  return fieldMap;
-}
-
 function getRecordDetailFieldValue(record, label) {
-  return getRecordDetailFieldMap(record).get(String(label || "").toLowerCase())?.value || "";
+  return getRecordMeta(record).detailMap.get(String(label || "").toLowerCase())?.value || "";
 }
 
 function updateRecordDetailFields(record, detailFields) {
@@ -452,58 +449,74 @@ function getRecordDetail(record, labels) {
 }
 
 function getRecordDwellingNumber(record) {
-  return getRecordDetail(record, [
+  return getRecordMeta(record).dwelling;
+}
+
+function getRecordFamilyNumber(record) {
+  return getRecordMeta(record).family;
+}
+
+function getRecordPageNumber(record) {
+  return getRecordMeta(record).page;
+}
+
+function getRecordLineNumber(record) {
+  return getRecordMeta(record).line;
+}
+
+function getRecordBirthYear(record) {
+  return getRecordMeta(record).birth;
+}
+
+function getRecordSurname(record) {
+  return getRecordMeta(record).surname;
+}
+
+function getRecordMeta(record) {
+  const cachedMeta = recordMetaCache.get(record);
+  if (cachedMeta?.complete) return cachedMeta;
+
+  const detailEntries = [record.household, record.notes]
+    .flatMap((value) => String(value || "").split(";"))
+    .map((part) => {
+      const separatorIndex = part.indexOf(":");
+      if (separatorIndex === -1) return null;
+
+      const label = part.slice(0, separatorIndex).trim();
+      const value = part.slice(separatorIndex + 1).trim();
+      return label && value ? { label, value } : null;
+    })
+    .filter(Boolean);
+  const detailMap = new Map();
+
+  detailEntries.forEach((entry) => {
+    const key = entry.label.toLowerCase();
+    if (!detailMap.has(key)) detailMap.set(key, entry);
+  });
+
+  const detailValue = (labels) =>
+    labels
+      .map((label) => detailMap.get(String(label || "").toLowerCase())?.value || "")
+      .find(Boolean) || "";
+  const surname = detailValue(["Surname", "Last Name"]) || String(record.name || "").trim().split(/\s+/).filter(Boolean).at(-1) || "";
+  const name = String(record.name || "").trim();
+  const givenName =
+    detailValue(["Given Name", "First Name"]) ||
+    (surname && name.toLowerCase().endsWith(surname.toLowerCase())
+      ? name.slice(0, -surname.length).trim()
+      : name);
+  const page = detailValue(["Page", "Page Number", "Page #"]);
+  const line = detailValue(["Line", "Line Number", "Line #"]);
+  const dwelling = detailValue([
     "Dwelling Number",
     "Dwelling #",
     "Number of Dwelling in Order of Visitation",
     "Dwelling in Order of Visitation",
   ]);
-}
-
-function getRecordFamilyNumber(record) {
-  return getRecordDetail(record, ["Family", "Family Number", "Family #"]);
-}
-
-function getRecordPageNumber(record) {
-  return getRecordDetail(record, ["Page", "Page Number", "Page #"]);
-}
-
-function getRecordLineNumber(record) {
-  return getRecordDetail(record, ["Line", "Line Number", "Line #"]);
-}
-
-function getRecordBirthYear(record) {
-  return getRecordDetail(record, ["Birth Year", "Estimated Birth Year", "Year of Birth", "Birth"]);
-}
-
-function getRecordSurname(record) {
-  const detailSurname = getRecordDetail(record, ["Surname", "Last Name"]);
-  if (detailSurname) return detailSurname;
-
-  const nameParts = String(record.name || "").trim().split(/\s+/).filter(Boolean);
-  return nameParts.at(-1) || "";
-}
-
-function getRecordGivenName(record) {
-  const detailGivenName = getRecordDetail(record, ["Given Name", "First Name"]);
-  if (detailGivenName) return detailGivenName;
-
-  const name = String(record.name || "").trim();
-  const surname = getRecordSurname(record);
-  if (surname && name.toLowerCase().endsWith(surname.toLowerCase())) {
-    return name.slice(0, -surname.length).trim();
-  }
-
-  return name;
-}
-
-function recordMatchesTextFilter(record, filterText) {
-  const queryTerms = String(filterText || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
-  if (queryTerms.length === 0) return true;
-
-  const givenName = getRecordGivenName(record);
-  const surname = getRecordSurname(record);
-  const haystack = [
+  const family = detailValue(["Family", "Family Number", "Family #"]);
+  const birth = detailValue(["Birth Year", "Birth", "Estimated Birth Year", "Year of Birth"]);
+  const age = detailValue(["Age"]);
+  const searchText = [
     record.name,
     givenName,
     surname,
@@ -515,8 +528,44 @@ function recordMatchesTextFilter(record, filterText) {
   ]
     .join(" ")
     .toLowerCase();
+  const matchProfile = {
+    year: normalizeMatchText(record.year),
+    name: normalizeMatchText(record.name),
+    givenName: normalizeMatchText(givenName),
+    surname: normalizeMatchText(surname),
+    location: normalizeMatchText(record.location),
+    page: normalizeMatchText(page),
+    line: normalizeMatchText(line),
+    dwelling: normalizeMatchText(dwelling),
+    family: normalizeMatchText(family),
+    age: normalizeMatchText(age),
+    birth: normalizeMatchText(birth),
+  };
+  const meta = {
+    complete: true,
+    detailEntries,
+    detailMap,
+    givenName,
+    surname,
+    page,
+    line,
+    dwelling,
+    family,
+    birth,
+    age,
+    searchText,
+    matchProfile,
+  };
 
-  return queryTerms.every((term) => haystack.includes(term));
+  recordMetaCache.set(record, meta);
+  return meta;
+}
+
+function recordMatchesTextFilter(record, filterText) {
+  const queryTerms = String(filterText || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (queryTerms.length === 0) return true;
+
+  return queryTerms.every((term) => getRecordMeta(record).searchText.includes(term));
 }
 
 function normalizeMatchText(value) {
@@ -529,19 +578,7 @@ function normalizeMatchText(value) {
 }
 
 function getRecordMatchProfile(record) {
-  return {
-    year: normalizeMatchText(record.year),
-    name: normalizeMatchText(record.name),
-    givenName: normalizeMatchText(getRecordGivenName(record)),
-    surname: normalizeMatchText(getRecordSurname(record)),
-    location: normalizeMatchText(record.location),
-    page: normalizeMatchText(getRecordPageNumber(record)),
-    line: normalizeMatchText(getRecordLineNumber(record)),
-    dwelling: normalizeMatchText(getRecordDwellingNumber(record)),
-    family: normalizeMatchText(getRecordFamilyNumber(record)),
-    age: normalizeMatchText(getNoteValue(record.notes, ["Age"])),
-    birth: normalizeMatchText(getNoteValue(record.notes, ["Birth Year", "Birth", "Estimated Birth Year"])),
-  };
+  return getRecordMeta(record).matchProfile;
 }
 
 function getDuplicateConfidence(leftRecord, rightRecord) {
@@ -1311,17 +1348,20 @@ export default function App() {
   const [yearFilter, setYearFilter] = useState("all");
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
   const [searchResultsCleared, setSearchResultsCleared] = useState(false);
+  const [searchResultLimit, setSearchResultLimit] = useState(HOME_SEARCH_RESULT_LIMIT);
   const [recordsByYearSelection, setRecordsByYearSelection] = useState("");
   const [recordsByYearFilter, setRecordsByYearFilter] = useState("");
   const [recordsByYearSort, setRecordsByYearSort] = useState({
     field: "page",
     direction: "asc",
   });
+  const [recordsByYearLimit, setRecordsByYearLimit] = useState(PROJECT_RECORD_RENDER_LIMIT);
   const [projectDataFilter, setProjectDataFilter] = useState("");
   const [projectDataSort, setProjectDataSort] = useState({
     field: "surname",
     direction: "asc",
   });
+  const [projectRecordLimits, setProjectRecordLimits] = useState({});
   const [selectedProjectRecordIds, setSelectedProjectRecordIds] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
@@ -1480,6 +1520,8 @@ export default function App() {
   const favoriteRecords = useMemo(() => allRecords.filter((record) => record.bookmarked), [allRecords]);
 
   const duplicateGroups = useMemo(() => {
+    if (currentPage !== "#/analysis/duplicates") return [];
+
     const confidenceRank = { Exact: 3, Likely: 2, Possible: 1 };
     const parent = new Map(allRecords.map((record) => [record.id, record.id]));
     const groupConfidence = new Map();
@@ -1509,12 +1551,39 @@ export default function App() {
       groupConfidence.set(leftRoot, nextConfidence);
     }
 
-    for (let leftIndex = 0; leftIndex < allRecords.length; leftIndex += 1) {
-      for (let rightIndex = leftIndex + 1; rightIndex < allRecords.length; rightIndex += 1) {
-        const confidence = getDuplicateConfidence(allRecords[leftIndex], allRecords[rightIndex]);
-        if (confidence) join(allRecords[leftIndex].id, allRecords[rightIndex].id, confidence);
+    const buckets = new Map();
+    const comparedPairs = new Set();
+    const addToBucket = (key, record) => {
+      if (!key) return;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(record);
+    };
+
+    allRecords.forEach((record) => {
+      const profile = getRecordMatchProfile(record);
+      const nameKey = profile.surname || profile.name;
+      if (!nameKey) return;
+
+      if (profile.year && profile.location) addToBucket(`year-name-location|${profile.year}|${nameKey}|${profile.location}`, record);
+      if (profile.year) addToBucket(`year-name|${profile.year}|${nameKey}`, record);
+      if (profile.location) addToBucket(`name-location|${nameKey}|${profile.location}`, record);
+      if (profile.birth || profile.age) addToBucket(`name-birth|${nameKey}|${profile.birth || profile.age}`, record);
+    });
+
+    buckets.forEach((bucket) => {
+      if (bucket.length > DUPLICATE_BUCKET_LIMIT) return;
+
+      for (let leftIndex = 0; leftIndex < bucket.length; leftIndex += 1) {
+        for (let rightIndex = leftIndex + 1; rightIndex < bucket.length; rightIndex += 1) {
+          const pairKey = [bucket[leftIndex].id, bucket[rightIndex].id].sort().join("|");
+          if (comparedPairs.has(pairKey)) continue;
+          comparedPairs.add(pairKey);
+
+          const confidence = getDuplicateConfidence(bucket[leftIndex], bucket[rightIndex]);
+          if (confidence) join(bucket[leftIndex].id, bucket[rightIndex].id, confidence);
+        }
       }
-    }
+    });
 
     const groups = new Map();
     allRecords.forEach((record) => {
@@ -1539,7 +1608,7 @@ export default function App() {
         if (confidenceComparison !== 0) return confidenceComparison;
         return compareRecordValues(left.records[0]?.name, right.records[0]?.name);
       });
-  }, [allRecords]);
+  }, [allRecords, currentPage]);
 
   const years = useMemo(() => {
     return Array.from(new Set(allRecords.map((r) => r.year).filter(Boolean))).sort();
@@ -1703,6 +1772,8 @@ export default function App() {
   }, [allRecords, query, yearFilter, showBookmarkedOnly]);
 
   const visibleSearchRecords = searchResultsCleared ? [] : filteredRecords;
+  const limitedSearchRecords = visibleSearchRecords.slice(0, searchResultLimit);
+  const hiddenSearchRecordCount = Math.max(0, visibleSearchRecords.length - limitedSearchRecords.length);
   const selectedRecordsByYear = recordsByYearSelection || years[0] || "";
   const recordsByYear = useMemo(() => {
     const sortAccessors = {
@@ -2520,6 +2591,7 @@ export default function App() {
     });
 
     const changeRecordsByYearSort = (field) => {
+      setRecordsByYearLimit(PROJECT_RECORD_RENDER_LIMIT);
       setRecordsByYearSort((prev) => ({
         field,
         direction: prev.field === field && prev.direction === "asc" ? "desc" : "asc",
@@ -2579,7 +2651,10 @@ export default function App() {
 
                 <select
                   value={selectedRecordsByYear}
-                  onChange={(event) => setRecordsByYearSelection(event.target.value)}
+                  onChange={(event) => {
+                    setRecordsByYearSelection(event.target.value);
+                    setRecordsByYearLimit(PROJECT_RECORD_RENDER_LIMIT);
+                  }}
                   style={{ ...inputStyle, minWidth: "220px" }}
                 >
                   {years.length === 0 && <option value="">No years available</option>}
@@ -2595,7 +2670,10 @@ export default function App() {
                 <h2 style={sectionTitleStyle}>Records</h2>
                 <input
                   value={recordsByYearFilter}
-                  onChange={(event) => setRecordsByYearFilter(event.target.value)}
+                  onChange={(event) => {
+                    setRecordsByYearFilter(event.target.value);
+                    setRecordsByYearLimit(PROJECT_RECORD_RENDER_LIMIT);
+                  }}
                   placeholder="Filter name, location, note..."
                   style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
                 />
@@ -2625,7 +2703,7 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recordsByYear.map((record) => {
+                    {recordsByYear.slice(0, recordsByYearLimit).map((record) => {
                       const isEditing = editingSearchRecordId === record.id;
 
                       return (
@@ -2759,6 +2837,25 @@ export default function App() {
                         </tr>
                       );
                     })}
+
+                    {recordsByYear.length > recordsByYearLimit && (
+                      <tr>
+                        <td colSpan={5 + recordsByYearFieldLabels.length} style={{ padding: "18px", textAlign: "center", color: "#4b5563", fontWeight: "700" }}>
+                          <div style={{ display: "flex", justifyContent: "center", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                            <span>
+                              Showing first {recordsByYearLimit} of {recordsByYear.length} records for this year.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setRecordsByYearLimit((prev) => prev + PROJECT_RECORD_RENDER_LIMIT)}
+                              style={lightButtonStyle}
+                            >
+                              Show More
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {recordsByYear.length === 0 && (
                       <tr>
@@ -2986,6 +3083,7 @@ export default function App() {
       textDecoration: projectDataSort.field === field ? "underline" : "none",
     });
     const changeProjectDataSort = (field) => {
+      setProjectRecordLimits({});
       setProjectDataSort((prev) => ({
         field,
         direction: prev.field === field && prev.direction === "asc" ? "desc" : "asc",
@@ -3009,6 +3107,13 @@ export default function App() {
 
         return compareRecordValues(left.name, right.name);
       });
+    };
+    const getProjectRecordLimit = (projectId) => projectRecordLimits[projectId] || PROJECT_RECORD_RENDER_LIMIT;
+    const showMoreProjectRecords = (projectId) => {
+      setProjectRecordLimits((prev) => ({
+        ...prev,
+        [projectId]: (prev[projectId] || PROJECT_RECORD_RENDER_LIMIT) + PROJECT_RECORD_RENDER_LIMIT,
+      }));
     };
     const selectedProjectRecordIdSet = new Set(selectedProjectRecordIds);
     const templateFieldOrder = new Map();
@@ -3088,7 +3193,10 @@ export default function App() {
                   <h2 style={sectionTitleStyle}>Records</h2>
                   <input
                     value={projectDataFilter}
-                    onChange={(event) => setProjectDataFilter(event.target.value)}
+                    onChange={(event) => {
+                      setProjectDataFilter(event.target.value);
+                      setProjectRecordLimits({});
+                    }}
                     placeholder="Filter name, location, note..."
                     style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
                   />
@@ -3142,7 +3250,9 @@ export default function App() {
                     </thead>
 
                     <tbody>
-                      {getSortedProjectRecords(filteredProjectRecords.get(project.id) || []).map((record) => {
+                      {getSortedProjectRecords(filteredProjectRecords.get(project.id) || [])
+                        .slice(0, getProjectRecordLimit(project.id))
+                        .map((record) => {
                         const isEditing = editingSearchRecordId === record.id;
 
                         return (
@@ -3264,7 +3374,22 @@ export default function App() {
                             </td>
                           </tr>
                         );
-                      })}
+                        })}
+
+                      {(filteredProjectRecords.get(project.id)?.length || 0) > getProjectRecordLimit(project.id) && (
+                        <tr>
+                          <td colSpan={4 + projectDataFieldLabels.length} style={{ padding: "18px", textAlign: "center", color: "#4b5563", fontWeight: "700" }}>
+                            <div style={{ display: "flex", justifyContent: "center", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                              <span>
+                                Showing first {getProjectRecordLimit(project.id)} of {filteredProjectRecords.get(project.id)?.length || 0} records in this project.
+                              </span>
+                              <button type="button" onClick={() => showMoreProjectRecords(project.id)} style={lightButtonStyle}>
+                                Show More
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
 
                       {(filteredProjectRecords.get(project.id)?.length || 0) === 0 && (
                         <tr>
@@ -5377,6 +5502,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                     onChange={(e) => {
                       setQuery(e.target.value);
                       setSearchResultsCleared(false);
+                      setSearchResultLimit(HOME_SEARCH_RESULT_LIMIT);
                     }}
                     placeholder="Search name, place, note, project..."
                     style={{ ...inputStyle, minWidth: "280px" }}
@@ -5387,6 +5513,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                     onChange={(e) => {
                       setYearFilter(e.target.value);
                       setSearchResultsCleared(false);
+                      setSearchResultLimit(HOME_SEARCH_RESULT_LIMIT);
                     }}
                     style={inputStyle}
                   >
@@ -5403,6 +5530,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                       onChange={(e) => {
                         setShowBookmarkedOnly(e.target.checked);
                         setSearchResultsCleared(false);
+                        setSearchResultLimit(HOME_SEARCH_RESULT_LIMIT);
                       }}
                     />
                     Favorites
@@ -5415,6 +5543,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                       setYearFilter("all");
                       setShowBookmarkedOnly(false);
                       setSearchResultsCleared(true);
+                      setSearchResultLimit(HOME_SEARCH_RESULT_LIMIT);
                       cancelEditingSearchRecord();
                     }}
                     style={lightButtonStyle}
@@ -5438,7 +5567,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   </thead>
 
                   <tbody>
-                    {visibleSearchRecords.map((record) => {
+                    {limitedSearchRecords.map((record) => {
                       const isEditing = editingSearchRecordId === record.id;
 
                       return (
@@ -5556,6 +5685,25 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                         </tr>
                       );
                     })}
+
+                    {hiddenSearchRecordCount > 0 && (
+                      <tr>
+                        <td colSpan="6" style={{ padding: "18px", textAlign: "center", color: "#4b5563", fontWeight: "700" }}>
+                          <div style={{ display: "flex", justifyContent: "center", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+                            <span>
+                              Showing first {limitedSearchRecords.length} of {visibleSearchRecords.length} matching records.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setSearchResultLimit((prev) => prev + HOME_SEARCH_RESULT_LIMIT)}
+                              style={lightButtonStyle}
+                            >
+                              Show More
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {visibleSearchRecords.length === 0 && (
                       <tr>
