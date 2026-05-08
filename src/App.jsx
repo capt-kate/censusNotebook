@@ -756,6 +756,8 @@ function CensusTemplatePage({
   const [pastedTemplateText, setPastedTemplateText] = useState("");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(template.label);
+  const [selectedRowIndexes, setSelectedRowIndexes] = useState(() => new Set());
+  const [lastSelectedRowIndex, setLastSelectedRowIndex] = useState(null);
   const compactButtonStyle = { ...buttonStyle, fontSize: "13px", padding: "8px 12px" };
   const compactLightButtonStyle = { ...lightButtonStyle, fontSize: "13px", padding: "8px 12px" };
 
@@ -769,9 +771,47 @@ function CensusTemplatePage({
     setRows((prev) => [...prev, ...makeBlankTemplateRows(template, 5)]);
   }
 
+  function selectRow(rowIndex, event) {
+    setSelectedRowIndexes((prev) => {
+      if (event?.shiftKey && lastSelectedRowIndex !== null) {
+        const start = Math.min(lastSelectedRowIndex, rowIndex);
+        const end = Math.max(lastSelectedRowIndex, rowIndex);
+        return new Set(Array.from({ length: end - start + 1 }, (_, offset) => start + offset));
+      }
+
+      if (event?.metaKey || event?.ctrlKey) {
+        const next = new Set(prev);
+        if (next.has(rowIndex)) {
+          next.delete(rowIndex);
+        } else {
+          next.add(rowIndex);
+        }
+        return next;
+      }
+
+      return new Set([rowIndex]);
+    });
+    setLastSelectedRowIndex(rowIndex);
+  }
+
+  function removeSelectedRows() {
+    if (selectedRowIndexes.size === 0) return;
+
+    setRows((prev) => {
+      const next = prev.filter((_, rowIndex) => !selectedRowIndexes.has(rowIndex));
+      return next.length > 0 ? next : makeBlankTemplateRows(template, 1);
+    });
+    setSelectedRowIndexes(new Set());
+    setLastSelectedRowIndex(null);
+  }
+
   function clearRows() {
     const confirmed = window.confirm("Clear all pasted data from this template?");
-    if (confirmed) setRows(makeTemplateRows(template, 12));
+    if (confirmed) {
+      setRows(makeTemplateRows(template, 12));
+      setSelectedRowIndexes(new Set());
+      setLastSelectedRowIndex(null);
+    }
   }
 
   function handlePaste(event, startRowIndex, startColumnIndex) {
@@ -911,6 +951,13 @@ function CensusTemplatePage({
               <p style={{ margin: 0 }}>
                 {template.note}
               </p>
+              {template.noteItems && (
+                <ul style={{ margin: "8px 0 0", paddingLeft: "22px" }}>
+                  {template.noteItems.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              )}
               {template.noteLink && (
                 <p style={{ margin: "12px 0 0" }}>
                   {template.noteLink.prefix}
@@ -940,6 +987,13 @@ function CensusTemplatePage({
             </div>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-start" }}>
               <button onClick={addBlankRows} style={compactLightButtonStyle}>Add Rows</button>
+              <button
+                onClick={removeSelectedRows}
+                disabled={selectedRowIndexes.size === 0}
+                style={selectedRowIndexes.size > 0 ? compactLightButtonStyle : { ...compactLightButtonStyle, cursor: "not-allowed", opacity: 0.55 }}
+              >
+                Remove Rows
+              </button>
               <button onClick={clearRows} style={compactLightButtonStyle}>Clear All</button>
               <label style={{ ...compactLightButtonStyle, display: "inline-block" }}>
                 Import CSV
@@ -986,6 +1040,23 @@ function CensusTemplatePage({
             <table style={{ borderCollapse: "collapse", minWidth: `${Math.max(760, template.columns.length * 104)}px`, width: "100%", fontSize: "13px" }}>
               <thead>
                 <tr>
+                  <th
+                    style={{
+                      position: "sticky",
+                      top: 0,
+                      left: 0,
+                      zIndex: 2,
+                      background: "#f3f4f6",
+                      borderBottom: "1px solid #d1d5db",
+                      borderRight: "1px solid #e5e7eb",
+                      padding: "7px",
+                      textAlign: "center",
+                      whiteSpace: "nowrap",
+                      width: "44px",
+                    }}
+                  >
+                    Row
+                  </th>
                   {template.columns.map((column) => (
                     <th
                       key={column.key}
@@ -1007,12 +1078,36 @@ function CensusTemplatePage({
               </thead>
               <tbody>
                 {rows.map((row, rowIndex) => (
-                  <tr key={rowIndex}>
+                  <tr key={rowIndex} style={{ background: selectedRowIndexes.has(rowIndex) ? "#eff6ff" : "white" }}>
+                    <td style={{ borderBottom: "1px solid #f3f4f6", borderRight: "1px solid #e5e7eb", padding: 0, background: selectedRowIndexes.has(rowIndex) ? "#dbeafe" : "#f9fafb" }}>
+                      <button
+                        type="button"
+                        onClick={(event) => selectRow(rowIndex, event)}
+                        aria-pressed={selectedRowIndexes.has(rowIndex)}
+                        aria-label={`Select row ${rowIndex + 1}`}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          minHeight: "34px",
+                          border: "none",
+                          background: "transparent",
+                          color: selectedRowIndexes.has(rowIndex) ? "#1d4ed8" : "#4b5563",
+                          cursor: "pointer",
+                          fontWeight: "700",
+                        }}
+                      >
+                        {rowIndex + 1}
+                      </button>
+                    </td>
                     {template.columns.map((column, columnIndex) => (
                       <td key={column.key} style={{ borderBottom: "1px solid #f3f4f6", borderRight: "1px solid #f3f4f6", padding: 0 }}>
                         <input
                           value={row[column.key]}
                           onChange={(event) => updateCell(rowIndex, column.key, event.target.value)}
+                          onMouseDown={(event) => selectRow(rowIndex, event)}
+                          onFocus={() => {
+                            if (selectedRowIndexes.size === 0) selectRow(rowIndex);
+                          }}
                           onPaste={(event) => handlePaste(event, rowIndex, columnIndex)}
                           style={{
                             ...inputStyle,
@@ -2775,7 +2870,7 @@ export default function App() {
                                   style={{ ...inputStyle, minWidth: "130px" }}
                                 />
                               ) : (
-                                getRecordDetailFieldValue(record, label) || "N/A"
+                                getRecordDetailFieldValue(record, label) || "—"
                               )}
                             </td>
                           ))}
@@ -2970,7 +3065,7 @@ export default function App() {
                                 style={{ ...inputStyle, minWidth: "110px" }}
                               />
                             ) : (
-                              getRecordBirthYear(record) || "N/A"
+                              getRecordBirthYear(record) || "—"
                             )}
                           </td>
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
@@ -3305,7 +3400,7 @@ export default function App() {
                             </td>
                             {projectDataFieldLabels.map((label) => (
                               <td key={label} style={{ padding: "12px", borderBottom: "1px solid #e5e7eb" }}>
-                                {getRecordDetailFieldValue(record, label) || "N/A"}
+                                {getRecordDetailFieldValue(record, label) || "—"}
                               </td>
                             ))}
                             <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
@@ -3568,7 +3663,7 @@ export default function App() {
                                   </a>
                                 )}
                               </td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Age"]) || "N/A"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(record.notes, ["Age"]) || "—"}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
                                 {isEditing ? (
                                   <input
@@ -3579,14 +3674,14 @@ export default function App() {
                                     style={{ ...inputStyle, minWidth: "160px" }}
                                   />
                                 ) : (
-                                  record.location || "N/A"
+                                  record.location || "—"
                                 )}
                               </td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                {getNoteValue(record.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "N/A"}
+                                {getNoteValue(record.notes, ["Occupation", "Usual Occupation", "Prior Occupation"]) || "—"}
                               </td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
-                                {getNoteValue(record.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "N/A"}
+                                {getNoteValue(record.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "—"}
                               </td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
                                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
@@ -3757,8 +3852,8 @@ export default function App() {
                                   style={{ background: household.key === result.matchHouseholdKey ? "#dbeafe" : candidate.highlighted ? "#fef9c3" : "white" }}
                                 >
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>{position}</td>
-                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{household.dwellingNumber || "N/A"}</td>
-                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{household.familyNumber || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{household.dwellingNumber || "—"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{household.familyNumber || "—"}</td>
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
                                     <a
                                       href={`#/project-data?project=${result.projectId}&record=${candidate.id}`}
@@ -3768,7 +3863,7 @@ export default function App() {
                                     </a>
                                   </td>
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{candidate.location}</td>
-                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(candidate) || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(candidate) || "—"}</td>
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{candidate.notes}</td>
                                 </tr>
                               );
@@ -3899,8 +3994,8 @@ export default function App() {
                                       </a>
                                     )}
                                   </td>
-                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(member) || "N/A"}</td>
-                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(member.notes, ["Age"]) || "N/A"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(member) || "—"}</td>
+                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(member.notes, ["Age"]) || "—"}</td>
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
                                     <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                                       {isEditing ? (
@@ -4059,10 +4154,10 @@ export default function App() {
                                 </a>
                               </td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.location}</td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordPageNumber(record) || "N/A"}</td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordLineNumber(record) || "N/A"}</td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordDwellingNumber(record) || "N/A"}</td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordFamilyNumber(record) || "N/A"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordPageNumber(record) || "—"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordLineNumber(record) || "—"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordDwellingNumber(record) || "—"}</td>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordFamilyNumber(record) || "—"}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
                             </tr>
                           ))}
