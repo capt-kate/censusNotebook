@@ -109,3 +109,68 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.notes-print {
+  display: none;
+}
+
+@media print {
+  html {
+    background: #fff !important;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  * {
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  #root {
+    width: auto;
+    max-width: none;
+    border: none;
+    display: block;
+    min-height: auto;
+    background: #fff !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  footer {
+    display: none !important;
+  }
+
+  .notes-print {
+    display: block;
+    background: #fff !important;
+    color: #000;
+    font: 12pt/1.45 Georgia, "Times New Roman", serif;
+    text-align: left;
+  }
+
+  .notes-print h1 {
+    color: #000;
+    font: 700 18pt/1.2 Georgia, "Times New Roman", serif;
+    letter-spacing: 0;
+    margin: 0 0 18pt;
+  }
+
+  .notes-print-entry {
+    margin: 0 0 18pt;
+    break-inside: avoid;
+  }
+
+  .notes-print-name {
+    font-weight: 700;
+    margin: 0 0 4pt;
+  }
+
+  .notes-print-text {
+    white-space: pre-wrap;
+  }
+}

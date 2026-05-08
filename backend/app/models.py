@@ -36,6 +36,7 @@ class Record(Base):
     location: Mapped[str] = mapped_column(String(240), default="", nullable=False)
     household: Mapped[str] = mapped_column(String(240), default="", nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    research_notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     bookmarked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     highlighted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

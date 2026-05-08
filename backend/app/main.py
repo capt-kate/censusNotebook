@@ -3,7 +3,7 @@ from shutil import copyfileobj
 
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import or_, select
+from sqlalchemy import inspect, or_, select, text
 from sqlalchemy.orm import Session, selectinload
 
 from .database import Base, engine, get_db
@@ -39,6 +39,12 @@ app.add_middleware(
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    if engine.dialect.name == "sqlite":
+        inspector = inspect(engine)
+        record_columns = {column["name"] for column in inspector.get_columns("records")}
+        if "research_notes" not in record_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE records ADD COLUMN research_notes TEXT NOT NULL DEFAULT ''"))
     UPLOAD_DIR.mkdir(exist_ok=True)
 
 
@@ -150,6 +156,7 @@ def search_records(q: str = "", db: Session = Depends(get_db)) -> list[Record]:
                 Record.location.ilike(pattern),
                 Record.household.ilike(pattern),
                 Record.notes.ilike(pattern),
+                Record.research_notes.ilike(pattern),
             )
         )
 

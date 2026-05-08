@@ -9,6 +9,7 @@ class RecordBase(BaseModel):
     location: str = ""
     household: str = ""
     notes: str = ""
+    research_notes: str = ""
     bookmarked: bool = False
     highlighted: bool = False
 
@@ -23,6 +24,7 @@ class RecordUpdate(BaseModel):
     location: str | None = None
     household: str | None = None
     notes: str | None = None
+    research_notes: str | None = None
     bookmarked: bool | None = None
     highlighted: bool | None = None
 

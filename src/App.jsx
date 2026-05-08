@@ -177,9 +177,27 @@ function normalizeProject(project) {
       location: record.location || "",
       household: record.household || "",
       notes: record.notes || "",
+      researchNotes: record.researchNotes || record.research_notes || "",
       bookmarked: Boolean(record.bookmarked),
       highlighted: Boolean(record.highlighted),
     })),
+  };
+}
+
+function recordToApiPayload(record) {
+  const { researchNotes, ...rest } = record;
+  return {
+    ...rest,
+    research_notes: researchNotes || "",
+  };
+}
+
+function recordChangesToApiPayload(changes) {
+  if (!Object.prototype.hasOwnProperty.call(changes, "researchNotes")) return changes;
+  const { researchNotes, ...rest } = changes;
+  return {
+    ...rest,
+    research_notes: researchNotes || "",
   };
 }
 
@@ -525,6 +543,7 @@ function getRecordMeta(record) {
     record.location,
     record.household,
     record.notes,
+    record.researchNotes,
   ]
     .join(" ")
     .toLowerCase();
@@ -1439,6 +1458,7 @@ export default function App() {
   const [apiConnected, setApiConnected] = useState(false);
   const [statusMessage, setStatusMessage] = useState("Loading your local data...");
   const [recordActionMessage, setRecordActionMessage] = useState("");
+  const [recordNotesDrafts, setRecordNotesDrafts] = useState({});
   const [query, setQuery] = useState("");
   const [yearFilter, setYearFilter] = useState("all");
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false);
@@ -1588,6 +1608,25 @@ export default function App() {
   const validMergeTargetProjectId = mergeTargetProjects.some((project) => project.id === mergeTargetProjectId)
     ? mergeTargetProjectId
     : "";
+  const currentNotesParams = currentPage.startsWith("#/notes") ? getHashSearchParams(currentPage) : null;
+  const currentNotesProject = currentNotesParams
+    ? data.projects.find((project) => project.id === currentNotesParams.get("project"))
+    : null;
+  const currentNotesRecord = currentNotesProject?.records.find((record) => record.id === currentNotesParams?.get("record"));
+  const currentNotesRecords = currentNotesProject?.records || [];
+  const visibleNotesRecords = currentNotesRecords.filter(
+    (record) =>
+      String(record.researchNotes || "").trim() ||
+      String(recordNotesDrafts[record.id] || "").trim() ||
+      record.id === currentNotesRecord?.id
+  );
+
+  useEffect(() => {
+    if (!currentPage.startsWith("#/notes")) return;
+    setRecordNotesDrafts(
+      Object.fromEntries(currentNotesRecords.map((record) => [record.id, record.researchNotes || ""]))
+    );
+  }, [currentPage, currentNotesProject?.id, currentNotesRecords]);
 
   const allTemplates = useMemo(() => [...censusTemplates, ...customTemplates], [customTemplates]);
 
@@ -2027,7 +2066,7 @@ export default function App() {
 
     if (apiConnected) {
       try {
-        record = await api.createRecord(activeProject.id, recordDraft);
+        record = await api.createRecord(activeProject.id, recordToApiPayload(recordDraft));
       } catch {
         setApiConnected(false);
         setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
@@ -2049,7 +2088,7 @@ export default function App() {
   async function updateRecord(projectId, recordId, changes) {
     if (apiConnected) {
       try {
-        await api.updateRecord(recordId, changes);
+        await api.updateRecord(recordId, recordChangesToApiPayload(changes));
       } catch {
         setApiConnected(false);
         setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
@@ -2194,6 +2233,27 @@ export default function App() {
     cancelEditingSearchRecord();
   }
 
+  async function saveProjectNotes() {
+    if (!currentNotesProject) return;
+
+    const changedRecords = currentNotesRecords.filter(
+      (record) => (recordNotesDrafts[record.id] || "") !== (record.researchNotes || "")
+    );
+    if (changedRecords.length === 0) return;
+
+    setRecordActionMessage("Saving notes...");
+
+    for (const record of changedRecords) {
+      await updateRecord(currentNotesProject.id, record.id, {
+        researchNotes: recordNotesDrafts[record.id] || "",
+      });
+    }
+
+    window.setTimeout(() => {
+      setRecordActionMessage((current) => (current === "Saving notes..." ? "" : current));
+    }, 700);
+  }
+
   async function importTemplateRows(template, templateRows) {
     if (!activeProject) return;
 
@@ -2203,7 +2263,7 @@ export default function App() {
     if (apiConnected) {
       try {
         for (const record of records) {
-          savedRecords.push(await api.createRecord(activeProject.id, record));
+          savedRecords.push(await api.createRecord(activeProject.id, recordToApiPayload(record)));
         }
       } catch {
         setApiConnected(false);
@@ -2500,67 +2560,80 @@ export default function App() {
       href: "#/help/getting-started",
       label: "Getting Started",
       description: "Create a project, add census data, then use analysis tools to find patterns.",
+      keywords: ["start", "workflow", "analysis", "patterns"],
     },
     {
       href: "#/help/how-it-works",
       label: "How Census Notebook Works",
       description: "Learn how local storage, projects, searching, and privacy fit together.",
+      keywords: ["favorites", "favorite", "highlight", "highlights", "notes", "record actions", "search", "privacy", "local storage"],
     },
     {
       href: "#/help/projects",
       label: "Working with Projects",
       description: "Organize records by surname, place, time period, or family branch.",
+      keywords: ["project", "projects", "merge", "merging", "delete project", "temporary project", "import project"],
     },
     {
       href: "#/help/census-image-text",
       label: "Converting a Census Image Into Text",
       description: "Download an image, transcribe it with OCR or AI, clean it up, and import it.",
+      keywords: ["ancestry", "excel", "paste special", "view text", "ocr", "ai prompt", "live text", "transcription"],
     },
     {
       href: "#/help/census-years",
       label: "Census Versions Through the Years",
       description: "Understand how census questions and available fields changed over time.",
+      keywords: ["years", "versions", "questions", "fields", "1790", "1890", "1950"],
     },
     {
       href: "#/help/templates",
       label: "Using Templates",
       description: "Paste spreadsheet rows, import CSV files, attach source documents, and save template data.",
+      keywords: ["template", "templates", "csv", "spreadsheet", "paste", "rows", "columns", "download blank template"],
     },
     {
       href: "#/help/manual-records",
       label: "Adding Records Manually",
       description: "Type a single record from the Home page or enter rows directly in a census template.",
+      keywords: ["manual", "add record", "single record", "type records"],
     },
     {
       href: "#/help/modifying-records",
       label: "Modifying Records",
       description: "Fine-tune imported records and update census fields after they are added.",
+      keywords: ["edit", "modify", "update", "correct", "fix", "delete record"],
     },
     {
       href: "#/help/import-scope",
       label: "How Much Census Data Should You Import?",
       description: "Decide whether to import full pages, direct family households, or both.",
+      keywords: ["full page", "neighbors", "household", "direct family", "scope"],
     },
     {
       href: "#/help/cleaning-data",
       label: "Tips for Cleaning Up Data Before Import",
       description: "Prepare OCR or spreadsheet data so imports, searches, and analysis work better.",
+      keywords: ["clean", "cleanup", "ocr", "spreadsheet", "columns", "names", "locations"],
     },
     {
       href: "#/help/sources-attachments",
       label: "Sources & Attachments",
       description: "Organize census images and PDFs in your own source folder.",
+      keywords: ["sources", "attachments", "images", "pdf", "folder", "files"],
     },
     {
       href: "#/help/known-limitations",
       label: "Known Limitations",
       description: "Understand local storage, backups, attachments, and browser limits.",
+      keywords: ["backup", "browser", "storage", "limitations", "lost data", "incognito", "private window"],
     },
   ];
   const filteredHelpTopics = helpTopics.filter((topic) => {
-    const searchText = helpSearch.trim().toLowerCase();
-    if (!searchText) return true;
-    return `${topic.label} ${topic.description}`.toLowerCase().includes(searchText);
+    const searchTerms = helpSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (searchTerms.length === 0) return true;
+    const indexedText = `${topic.label} ${topic.description} ${(topic.keywords || []).join(" ")}`.toLowerCase();
+    return searchTerms.every((term) => indexedText.includes(term));
   });
 
   const renderHelpTopicControls = () => (
@@ -3503,6 +3576,38 @@ export default function App() {
                                     >
                                       H
                                     </button>
+                                    <a
+                                      href={`#/notes?project=${project.id}&record=${record.id}`}
+                                      style={{
+                                        ...actionButtonStyle,
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        textDecoration: "none",
+                                        position: "relative",
+                                        background: record.researchNotes ? "#dcfce7" : actionButtonStyle.background,
+                                        borderColor: record.researchNotes ? "#86efac" : actionButtonStyle.borderColor,
+                                        color: record.researchNotes ? "#047857" : "#374151",
+                                      }}
+                                      aria-label="Open notes"
+                                      title={record.researchNotes ? "Open notes" : "Add notes"}
+                                    >
+                                      N
+                                      {record.researchNotes && (
+                                        <span
+                                          aria-hidden="true"
+                                          style={{
+                                            position: "absolute",
+                                            top: "3px",
+                                            right: "3px",
+                                            width: "7px",
+                                            height: "7px",
+                                            borderRadius: "50%",
+                                            background: "#16a34a",
+                                          }}
+                                        />
+                                      )}
+                                    </a>
                                     <button
                                       onClick={() => deleteRecord(project.id, record.id)}
                                       aria-label="Delete record"
@@ -3547,6 +3652,147 @@ export default function App() {
                 </div>
               </section>
             ))}
+          </main>
+          <CopyrightFooter actionMessage={recordActionMessage} />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage.startsWith("#/notes")) {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header className="no-print" style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Research notes
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>
+              {currentNotesProject ? `${currentNotesProject.name} Notes` : "Project Notes"}
+            </h1>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+              <a
+                href={currentNotesProject ? `#/project-data?project=${currentNotesProject.id}&record=${currentNotesRecord?.id || ""}` : "#/project-data"}
+                style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}
+              >
+                Back to Project Records
+              </a>
+              <button
+                onClick={() => window.print()}
+                style={{ ...lightButtonStyle, fontSize: "13px", padding: "8px 12px" }}
+              >
+                Print Notes
+              </button>
+              <select
+                value={currentNotesProject?.id || ""}
+                onChange={(event) => {
+                  window.location.hash = event.target.value ? `#/notes?project=${event.target.value}` : "#/notes";
+                }}
+                style={{ ...inputStyle, minWidth: "240px", fontSize: "13px", padding: "8px 12px" }}
+              >
+                <option value="">Choose project</option>
+                {data.projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </header>
+
+          <main style={{ maxWidth: "980px", margin: "0 auto", textAlign: "left" }}>
+            {currentNotesProject ? (
+              <>
+              <section className="notes-screen no-print" style={cardStyle}>
+                <p style={{ marginTop: 0, color: "#4b5563", lineHeight: 1.6 }}>
+                  This page shows records that have research notes. If you opened a person with no
+                  notes yet, that person appears here so you can create one.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {visibleNotesRecords.map((record) => (
+                    <div
+                      key={record.id}
+                      id={`notes-record-${record.id}`}
+                      style={{
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        padding: "12px",
+                        background: record.id === currentNotesRecord?.id ? "#eff6ff" : "#ffffff",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "baseline", flexWrap: "wrap" }}>
+                        <a
+                          href={`#/project-data?project=${currentNotesProject.id}&record=${record.id}`}
+                          style={{ color: "#1d4ed8", fontWeight: "700", textDecoration: "none", fontSize: "16px" }}
+                        >
+                          {record.name || "Unnamed record"}
+                        </a>
+                        <span style={{ color: "#6b7280", fontSize: "13px" }}>
+                          {[record.year, record.location].filter(Boolean).join(" · ") || "No census context"}
+                        </span>
+                      </div>
+                      <textarea
+                        value={recordNotesDrafts[record.id] || ""}
+                        onChange={(event) =>
+                          setRecordNotesDrafts((prev) => ({
+                            ...prev,
+                            [record.id]: event.target.value,
+                          }))
+                        }
+                        placeholder="Add research thoughts, questions, source notes, conflicts, next steps..."
+                        style={{
+                          ...inputStyle,
+                          minHeight: "130px",
+                          width: "100%",
+                          boxSizing: "border-box",
+                          lineHeight: 1.5,
+                          fontFamily: "Arial, Helvetica, sans-serif",
+                          marginTop: "8px",
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {visibleNotesRecords.length === 0 && (
+                    <p style={{ margin: 0, color: "#6b7280" }}>
+                      No research notes yet. Use the N button on a project record to start one.
+                    </p>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+                  <button onClick={saveProjectNotes} style={buttonStyle}>
+                    Save All Notes
+                  </button>
+                  <a
+                    href={`#/project-data?project=${currentNotesProject.id}&record=${currentNotesRecord?.id || ""}`}
+                    style={{ ...lightButtonStyle, display: "inline-block", textDecoration: "none" }}
+                  >
+                    Back to Project Records
+                  </a>
+                </div>
+              </section>
+              <section className="notes-print" aria-label="Printable notes">
+                <h1>{currentNotesProject.name} Notes</h1>
+                {visibleNotesRecords
+                  .filter((record) => String(recordNotesDrafts[record.id] || "").trim())
+                  .map((record) => (
+                    <div className="notes-print-entry" key={record.id}>
+                      <div className="notes-print-name">{record.name || "Unnamed record"}</div>
+                      <div className="notes-print-text">{recordNotesDrafts[record.id]}</div>
+                    </div>
+                  ))}
+              </section>
+              </>
+            ) : (
+              <section className="no-print" style={cardStyle}>
+                <h2 style={sectionTitleStyle}>Project not found</h2>
+                <p style={{ color: "#4b5563" }}>This notes page could not find the selected project.</p>
+                <a href="#/project-data" style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}>
+                  Back to Project Records
+                </a>
+              </section>
+            )}
           </main>
           <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
@@ -4301,24 +4547,33 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Favorites and highlights</h3>
-              <p>
-                Mark a record as a <strong>Favorite</strong> with the star button when you want to
-                return to it later. Favorites are saved with your project data and can be reviewed
-                together from the Favorites page.
-              </p>
-              <p>
-                Use <strong>Highlight</strong> when you want one record to stand out while you are
-                reviewing a page or comparing search results. Highlights remain visible across
-                different views so the same record is easy to spot as you move through the app.
-                Click <strong>Highlight</strong> again to turn the highlight off when you no longer
-                need that visual marker.
-              </p>
+              <h3>Record actions</h3>
+              <ul>
+                <li>
+                  Mark a record as a <strong>Favorite</strong> with the star button when you want to
+                  return to it later. Favorites are saved with your project data and can be reviewed
+                  together from the Favorites page.
+                </li>
+                <li>
+                  Use <strong>Highlight</strong> when you want one record to stand out while you are
+                  reviewing a page or comparing search results. Highlights remain visible across
+                  different views so the same record is easy to spot as you move through the app.
+                  Click <strong>Highlight</strong> again to turn the highlight off when you no longer
+                  need that visual marker.
+                </li>
+                <li>
+                  Use <strong>Notes</strong> when you want to keep research thoughts, questions,
+                  source comments, or next steps separate from the census data itself. Notes are saved
+                  with the record, can be reviewed together from the Notes page, and can be printed as
+                  a simple project notes sheet.
+                </li>
+              </ul>
               <p>The record action buttons use simple symbols:</p>
               <ul>
                 <li><strong>✎</strong> edits the record.</li>
                 <li><strong>★</strong> marks the record as a Favorite. <strong>☆</strong> means it is not currently a Favorite.</li>
                 <li><strong>H</strong> highlights the record. A yellow H means the highlight is turned on.</li>
+                <li><strong>N</strong> opens research Notes. A green N means the record already has notes.</li>
                 <li><strong>X</strong> deletes the record.</li>
               </ul>
             </section>
@@ -5625,6 +5880,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                 <a style={navLinkStyle} href="#/project-data">View Records by Project</a>
                 <a style={navLinkStyle} href="#/records-by-year">View Records by Year</a>
                 <a style={navLinkStyle} href="#/favorites">View Favorites</a>
+                <a style={navLinkStyle} href={activeProject ? `#/notes?project=${activeProject.id}` : "#/notes"}>Notes</a>
                 <a style={navLinkStyle} href="#/collect-census-images">Collect Census Images</a>
                 <a style={navLinkStyle} href="#/help">Help</a>
               </div>
