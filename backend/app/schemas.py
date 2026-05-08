@@ -43,6 +43,10 @@ class ProjectCreate(ProjectBase):
     pass
 
 
+class ProjectMerge(BaseModel):
+    target_project_id: str
+
+
 class ProjectRead(ProjectBase):
     model_config = ConfigDict(from_attributes=True)
 

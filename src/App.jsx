@@ -1459,6 +1459,7 @@ export default function App() {
   const [projectRecordLimits, setProjectRecordLimits] = useState({});
   const [selectedProjectRecordIds, setSelectedProjectRecordIds] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
+  const [mergeTargetProjectId, setMergeTargetProjectId] = useState("");
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
   const [customTemplateDraft, setCustomTemplateDraft] = useState({
     name: "",
@@ -1583,6 +1584,10 @@ export default function App() {
   }, [customTemplates]);
 
   const activeProject = data.projects.find((p) => p.id === data.activeProjectId) || data.projects[0];
+  const mergeTargetProjects = data.projects.filter((project) => project.id !== activeProject?.id);
+  const validMergeTargetProjectId = mergeTargetProjects.some((project) => project.id === mergeTargetProjectId)
+    ? mergeTargetProjectId
+    : "";
 
   const allTemplates = useMemo(() => [...censusTemplates, ...customTemplates], [customTemplates]);
 
@@ -1959,6 +1964,50 @@ export default function App() {
         projects: remainingProjects,
       };
     });
+  }
+
+  async function mergeActiveProject() {
+    if (!activeProject || !validMergeTargetProjectId) return;
+
+    const targetProject = data.projects.find((project) => project.id === validMergeTargetProjectId);
+    if (!targetProject) return;
+
+    const confirmed = window.confirm(
+      `Merge "${activeProject.name}" into "${targetProject.name}"? ${activeProject.records.length} ${activeProject.records.length === 1 ? "record" : "records"} will move, and "${activeProject.name}" will be removed. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    if (apiConnected) {
+      try {
+        await api.mergeProject(activeProject.id, targetProject.id);
+        const projects = await api.fetchProjects();
+        setData(toData(projects, targetProject.id));
+        setMergeTargetProjectId("");
+        return;
+      } catch {
+        setApiConnected(false);
+        setStatusMessage("Could not reach your private data service. Changes are saving locally for now.");
+      }
+    }
+
+    setData((prev) => {
+      const sourceProject = prev.projects.find((project) => project.id === activeProject.id);
+      if (!sourceProject) return prev;
+
+      const projects = prev.projects
+        .map((project) =>
+          project.id === targetProject.id
+            ? { ...project, records: [...project.records, ...sourceProject.records] }
+            : project
+        )
+        .filter((project) => project.id !== sourceProject.id);
+
+      return {
+        activeProjectId: targetProject.id,
+        projects,
+      };
+    });
+    setMergeTargetProjectId("");
   }
 
   async function addRecord() {
@@ -4431,6 +4480,31 @@ export default function App() {
               </p>
             </section>
 
+            <section style={helpSectionStyle}>
+              <h3>Merging Projects</h3>
+              <p>
+                If two projects belong together, you can merge one project into another from the
+                Projects box on the Home page.
+              </p>
+              <ul>
+                <li>Select the project you want to move from.</li>
+                <li>Choose the project you want to merge the data into.</li>
+                <li>Click <strong>Merge Project</strong>.</li>
+              </ul>
+              <p>
+                A useful strategy is to create a new temporary project before importing a large set
+                of data. Import the records there first and review them.
+              </p>
+              <ul>
+                <li>If the import does not look right, delete the temporary project and start over.</li>
+                <li>If the import looks good, merge the temporary project into your existing project.</li>
+              </ul>
+              <p>
+                After a merge, the first project is removed and its records become part of the project
+                you selected as the destination.
+              </p>
+            </section>
+
             <section style={helpSectionNoDividerStyle}>
               <h3>Deleting a Project</h3>
               <p>If you no longer need a project, you can remove it:</p>
@@ -5512,6 +5586,38 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               >
                 Delete Selected Project
               </button>
+
+              <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #e5e7eb" }}>
+                <label style={{ display: "flex", flexDirection: "column", gap: "6px", color: "#374151", fontWeight: "700", fontSize: "13px" }}>
+                  Merge selected project into
+                  <select
+                    value={validMergeTargetProjectId}
+                    onChange={(event) => setMergeTargetProjectId(event.target.value)}
+                    disabled={!activeProject || mergeTargetProjects.length === 0}
+                    style={{ ...inputStyle, width: "100%" }}
+                  >
+                    <option value="">Choose project</option>
+                    {mergeTargetProjects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={mergeActiveProject}
+                  disabled={!activeProject || !validMergeTargetProjectId}
+                  style={{
+                    ...lightButtonStyle,
+                    width: "100%",
+                    marginTop: "10px",
+                    color: activeProject && validMergeTargetProjectId ? "#1d4ed8" : "#9ca3af",
+                    cursor: activeProject && validMergeTargetProjectId ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Merge Project
+                </button>
+              </div>
             </section>
 
             <nav style={cardStyle}>

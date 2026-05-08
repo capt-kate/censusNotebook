@@ -10,6 +10,7 @@ from .database import Base, engine, get_db
 from .models import Project, Record, SourceImage
 from .schemas import (
     ProjectCreate,
+    ProjectMerge,
     ProjectRead,
     RecordCreate,
     RecordRead,
@@ -72,6 +73,31 @@ def delete_project(project_id: str, db: Session = Depends(get_db)) -> None:
 
     db.delete(project)
     db.commit()
+
+
+@app.post("/projects/{project_id}/merge", response_model=ProjectRead)
+def merge_project(project_id: str, payload: ProjectMerge, db: Session = Depends(get_db)) -> Project:
+    source_project = db.get(Project, project_id)
+    if source_project is None:
+        raise HTTPException(status_code=404, detail="Source project not found.")
+
+    if project_id == payload.target_project_id:
+        raise HTTPException(status_code=400, detail="Choose a different project to merge into.")
+
+    target_project = db.get(Project, payload.target_project_id)
+    if target_project is None:
+        raise HTTPException(status_code=404, detail="Target project not found.")
+
+    for record in list(source_project.records):
+        record.project_id = target_project.id
+
+    for source_image in list(source_project.source_images):
+        source_image.project_id = target_project.id
+
+    db.delete(source_project)
+    db.commit()
+    db.refresh(target_project)
+    return target_project
 
 
 @app.post("/projects/{project_id}/records", response_model=RecordRead, status_code=201)

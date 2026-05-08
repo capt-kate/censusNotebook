@@ -35,6 +35,13 @@ export async function deleteProject(projectId) {
   });
 }
 
+export async function mergeProject(sourceProjectId, targetProjectId) {
+  return request(`/projects/${sourceProjectId}/merge`, {
+    method: "POST",
+    body: JSON.stringify({ target_project_id: targetProjectId }),
+  });
+}
+
 export async function createRecord(projectId, record) {
   return request(`/projects/${projectId}/records`, {
     method: "POST",
