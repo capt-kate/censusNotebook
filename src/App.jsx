@@ -5198,11 +5198,26 @@ export default function App() {
               </p>
               <p>Simple options:</p>
               <ul>
-                <li>Mac: Preview can select text from an image if text recognition is available.</li>
+                <li>
+                  Mac: Preview can select text from an image if text recognition is available.
+                  Make sure <strong>System Settings</strong> &rarr; <strong>General</strong> &rarr;{" "}
+                  <strong>Language &amp; Region</strong> &rarr; <strong>Live Text</strong> is enabled.
+                </li>
                 <li>Windows: Snipping Tool can extract text on newer versions.</li>
                 <li>
                   AI tools such as ChatGPT or Google Gemini can transcribe an uploaded image. Upload
-                  the image, then use the prompt below.
+                  the image, then use the{" "}
+                  <a
+                    href="#/help/census-image-text"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      document.getElementById("prompt")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    style={{ color: "#1d4ed8", fontWeight: "700", textDecoration: "none" }}
+                  >
+                    prompt
+                  </a>{" "}
+                  below.
                 </li>
               </ul>
               <p>Upload your image, and the tool will give you editable text.</p>
@@ -5270,7 +5285,7 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Prompt</h3>
+              <h3 id="prompt">AI Prompt</h3>
               <p>Use this prompt with an AI tool after attaching your census image:</p>
               <code style={codeBlockStyle}>{`Transcribe the attached census image into clean, structured data suitable for a spreadsheet.
 
