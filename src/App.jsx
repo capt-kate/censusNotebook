@@ -688,6 +688,7 @@ function getRecordHouseholdKey(record) {
 function HelpIconLink() {
   return (
     <a
+      className="no-print"
       href="#/help"
       aria-label="Open Help"
       title="Help"
@@ -3762,7 +3763,7 @@ export default function App() {
 
                 <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
                   <button onClick={saveProjectNotes} style={buttonStyle}>
-                    Save All Notes
+                    Save Notes
                   </button>
                   <a
                     href={`#/project-data?project=${currentNotesProject.id}&record=${currentNotesRecord?.id || ""}`}
