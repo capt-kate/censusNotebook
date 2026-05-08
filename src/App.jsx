@@ -5213,6 +5213,37 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
+              <h3>Using Ancestry and Excel</h3>
+              <ul>
+                <li>
+                  Open the census image in Ancestry and click <strong>View Text</strong>.
+                  <img
+                    src="/ancestry-view-text.png"
+                    alt="Ancestry image viewer toolbar with the View Text button indicated"
+                    style={{
+                      display: "block",
+                      maxWidth: "360px",
+                      width: "100%",
+                      height: "auto",
+                      marginTop: "10px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                </li>
+                <li>
+                  Select the data you want. Capturing the entire page can make it easier to find
+                  neighbors and nearby relatives.
+                </li>
+                <li>
+                  In Excel, use <strong>Paste Special</strong> &rarr; <strong>Paste Special</strong> &rarr; <strong>Text</strong>. This
+                  automatically pastes the data into separate cells.
+                </li>
+                <li>After checking and correcting the data, copy and paste from Excel into Census Notebook.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
               <h3>Step 3: Clean Up the Text</h3>
               <p>Open the extracted text and:</p>
               <ul>
