@@ -4075,6 +4075,7 @@ export default function App() {
       Likely: { background: "#fef3c7", color: "#92400e" },
       Possible: { background: "#e0f2fe", color: "#075985" },
     };
+    const selectedDuplicateRecordIdSet = new Set(selectedProjectRecordIds);
 
     return (
       <div style={pageStyle}>
@@ -4093,7 +4094,7 @@ export default function App() {
             <h2 style={helpHeadingStyle}>Review possible duplicate records</h2>
             <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
               Census Notebook looks for records that may represent the same census entry. This page
-              is review-only, so no records are changed unless you open a record and edit or delete it yourself.
+              lets you compare possible matches and delete selected records after review.
             </p>
 
             <section style={helpSectionNoDividerStyle}>
@@ -4106,7 +4107,21 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Results</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                <h3 style={{ margin: 0 }}>Results</h3>
+                <button
+                  onClick={deleteSelectedProjectRecords}
+                  disabled={selectedProjectRecordIds.length === 0}
+                  style={{
+                    ...buttonStyle,
+                    background: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
+                    borderColor: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
+                    cursor: selectedProjectRecordIds.length === 0 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Delete Selected{selectedProjectRecordIds.length > 0 ? ` (${selectedProjectRecordIds.length})` : ""}
+                </button>
+              </div>
               {duplicateGroups.length > 0 ? (
                 duplicateGroups.map((group) => (
                   <div key={group.id} style={{ marginTop: "18px", border: "1px solid #e5e7eb", borderRadius: "10px", overflow: "hidden" }}>
@@ -4131,6 +4146,7 @@ export default function App() {
                       <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "14px" }}>
                         <thead>
                           <tr style={{ background: "#f3f4f6" }}>
+                            <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "92px" }}>Select</th>
                             <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Year</th>
                             <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
                             <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
@@ -4144,6 +4160,16 @@ export default function App() {
                         <tbody>
                           {group.records.map((record) => (
                             <tr key={record.id} style={{ background: record.highlighted ? "#fef9c3" : "white" }}>
+                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
+                                <label style={{ display: "flex", alignItems: "center", gap: "6px", color: "#4b5563", fontSize: "12px", fontWeight: "700" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedDuplicateRecordIdSet.has(record.id)}
+                                    onChange={(event) => toggleSelectedProjectRecord(record.id, event.target.checked)}
+                                  />
+                                  Select
+                                </label>
+                              </td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{record.year}</td>
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", fontWeight: "700" }}>
                                 <a
