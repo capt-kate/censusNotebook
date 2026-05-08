@@ -732,7 +732,7 @@ function CopyrightFooter({ actionMessage = "" }) {
         <a href="mailto:cousin.kate@olddeadrelatives.com" style={{ color: "inherit", fontWeight: "700" }}>
           Kate Montressor
         </a>
-        . v1. All rights reserved. This app is free for anyone to use. Please do not steal my work.
+        . v1.2. All rights reserved. This app is free for anyone to use. Please do not steal my work.
       </footer>
     </>
   );
