@@ -141,9 +141,46 @@ function columnKeyFromLabel(label, existingKeys = new Set()) {
   return key;
 }
 
+function parseDelimitedHeaderLine(line, delimiter) {
+  const labels = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const nextChar = line[index + 1];
+
+    if (char === '"' && nextChar === '"') {
+      current += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      labels.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  labels.push(current.trim());
+  return labels.filter(Boolean);
+}
+
 function parseColumnLabels(text) {
-  return text
-    .split(/\r?\n|,/)
+  const lines = String(text || "")
+    .split(/\r?\n/)
+    .map((label) => label.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return [];
+
+  const firstLine = lines[0];
+  if (firstLine.includes("\t")) return parseDelimitedHeaderLine(firstLine, "\t");
+  if (firstLine.includes(",")) return parseDelimitedHeaderLine(firstLine, ",");
+
+  return lines
+    .flatMap((line) => line.split(","))
     .map((label) => label.trim())
     .filter(Boolean);
 }
@@ -2330,6 +2367,18 @@ export default function App() {
     window.location.hash = `#/templates/${id}`;
   }
 
+  function pasteCustomTemplateHeaders(event) {
+    const text = event.clipboardData.getData("text");
+    const labels = parseColumnLabels(text);
+    if (labels.length === 0) return;
+
+    event.preventDefault();
+    setCustomTemplateDraft((prev) => ({
+      ...prev,
+      columnsText: labels.join("\n"),
+    }));
+  }
+
   function importCustomTemplateCsvHeaders(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -2339,7 +2388,7 @@ export default function App() {
       const firstLine = String(reader.result || "").split(/\r?\n/).find((line) => line.trim()) || "";
       setCustomTemplateDraft((prev) => ({
         ...prev,
-        columnsText: firstLine.split(",").map((label) => label.trim()).filter(Boolean).join("\n"),
+        columnsText: parseColumnLabels(firstLine).join("\n"),
       }));
     };
 
@@ -2707,7 +2756,8 @@ export default function App() {
             <textarea
               value={customTemplateDraft.columnsText}
               onChange={(event) => setCustomTemplateDraft((prev) => ({ ...prev, columnsText: event.target.value }))}
-              placeholder="Paste column headers here, one per line or separated by commas"
+              onPaste={pasteCustomTemplateHeaders}
+              placeholder="Paste header fields here from a spreadsheet, CSV, or one per line"
               style={{
                 ...inputStyle,
                 width: "100%",
