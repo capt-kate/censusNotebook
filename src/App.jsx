@@ -4998,7 +4998,7 @@ export default function App() {
                   </a>
                 </div>
               </section>
-              <section className="notes-print" aria-label="Printable notes">
+              <section className="notes-print" aria-label="Printable notes" data-print-title={`${currentNotesProject.name} Notes`}>
                 <h1>{currentNotesProject.name} Notes</h1>
                 {visibleNotesRecords
                   .filter((record) => String(recordNotesDrafts[record.id] || "").trim())
