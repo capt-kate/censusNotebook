@@ -63,16 +63,19 @@
     },
     "mac": {
       "category": "public.app-category.reference",
+      "icon": "public/icon.icns",
       "target": [
         "zip"
       ]
     },
     "win": {
+      "icon": "public/icon.png",
       "target": [
         "nsis"
       ]
     },
     "linux": {
+      "icon": "public/icon.png",
       "target": [
         "AppImage"
       ],
