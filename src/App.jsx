@@ -3164,12 +3164,13 @@ export default function App() {
     return false;
   }
 
-  async function interpretRecordWithAi(record, projectName = "") {
+  async function interpretRecordWithAi(record, projectId = "", projectName = "") {
     if (!requireProAi()) return;
 
     const title = `${record.name || "Unnamed record"}${record.year ? `, ${record.year}` : ""}`;
+    const resolvedProjectId = projectId || record.projectId || "";
     setAiInterpretation({
-      projectId: record.projectId || "",
+      projectId: resolvedProjectId,
       recordId: record.id,
       title,
       content: "",
@@ -3200,7 +3201,7 @@ export default function App() {
       }
 
       setAiInterpretation({
-        projectId: record.projectId || "",
+        projectId: resolvedProjectId,
         recordId: record.id,
         title,
         content: payload.interpretation || "",
@@ -3209,7 +3210,7 @@ export default function App() {
       });
     } catch (error) {
       setAiInterpretation({
-        projectId: record.projectId || "",
+        projectId: resolvedProjectId,
         recordId: record.id,
         title,
         content: "",
@@ -3220,7 +3221,15 @@ export default function App() {
   }
 
   async function copyAiInterpretationToNotes() {
-    if (!aiInterpretation.projectId || !aiInterpretation.recordId || !aiInterpretation.content) return;
+    if (!aiInterpretation.content) {
+      setAiInterpretation((prev) => ({ ...prev, status: "No AI interpretation to copy yet." }));
+      return;
+    }
+
+    if (!aiInterpretation.projectId || !aiInterpretation.recordId) {
+      setAiInterpretation((prev) => ({ ...prev, status: "Could not identify this record to update notes." }));
+      return;
+    }
 
     const project = data.projects.find((project) => project.id === aiInterpretation.projectId);
     const record = project?.records.find((record) => record.id === aiInterpretation.recordId);
@@ -4790,7 +4799,7 @@ export default function App() {
                                     </a>
                                     <button
                                       type="button"
-                                      onClick={() => interpretRecordWithAi(record, project.name)}
+                                      onClick={() => interpretRecordWithAi(record, project.id, project.name)}
                                       aria-label="AI interpret record"
                                       title={isProLicense ? "AI Interpret" : "AI Interpret requires Pro"}
                                       style={{
