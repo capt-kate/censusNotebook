@@ -95,6 +95,9 @@ function getProductType(session, env) {
   const metadataType = session.metadata?.product_type || session.metadata?.license_type;
   if (Object.values(PRODUCT_TYPES).includes(metadataType)) return metadataType;
 
+  if (session.amount_total === 9900) return PRODUCT_TYPES.pro;
+  if (session.amount_total === 2000) return PRODUCT_TYPES.extraProject;
+
   return "";
 }
 
@@ -196,6 +199,39 @@ function publicLicensePayload(license) {
   };
 }
 
+async function sendLicenseEmail(env, license, productType) {
+  if (!env.RESEND_API_KEY || !env.LICENSE_EMAIL_FROM || !license?.email) return;
+
+  const subject = productType === PRODUCT_TYPES.pro
+    ? "Your Census Notebook Pro license"
+    : "Your Census Notebook project slot license";
+  const planLabel = license.plan === "pro" ? "Pro lifetime" : "Free with extra project slots";
+  const html = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
+      <h1 style="font-size: 22px;">Census Notebook License</h1>
+      <p>Thank you for supporting Census Notebook.</p>
+      <p><strong>Plan:</strong> ${planLabel}</p>
+      <p><strong>Extra project slots:</strong> ${license.extra_project_slots}</p>
+      <p><strong>License key:</strong> <code style="font-size: 16px;">${license.license_key}</code></p>
+      <p>To activate your purchase, open Census Notebook, go to <strong>Support &amp; Upgrades</strong>, enter this license key or the email address used at checkout, and click <strong>Restore Purchase</strong>.</p>
+    </div>
+  `;
+
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: env.LICENSE_EMAIL_FROM,
+      to: license.email,
+      subject,
+      html,
+    }),
+  });
+}
+
 async function handleStripeWebhook(request, env) {
   const rawBody = await request.text();
   await verifyStripeSignature(rawBody, request.headers.get("Stripe-Signature"), env.STRIPE_WEBHOOK_SECRET);
@@ -212,6 +248,10 @@ async function handleStripeWebhook(request, env) {
   const license = productType === PRODUCT_TYPES.coffee
     ? null
     : await applyPurchase(env.DB, session, productType);
+
+  if (license) {
+    await sendLicenseEmail(env, license, productType);
+  }
 
   if (productType === PRODUCT_TYPES.coffee) {
     await recordPurchase(env.DB, {
