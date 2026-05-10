@@ -145,25 +145,29 @@ code {
     display: none !important;
   }
 
-  .notes-print {
-    display: block;
-    background: #fff !important;
-    color: #000;
-    font: 12pt/1.45 Georgia, "Times New Roman", serif;
-    text-align: left;
-  }
+	  .notes-print {
+	    display: block;
+	    background: #fff !important;
+	    color: #000;
+	    font: 12pt/1.45 Georgia, "Times New Roman", serif;
+	    text-align: left;
+	    margin: 0;
+	    padding: 0;
+	    break-before: auto;
+	  }
 
-  .notes-print h1 {
-    color: #000;
-    font: 700 18pt/1.2 Georgia, "Times New Roman", serif;
-    letter-spacing: 0;
-    margin: 0 0 18pt;
-  }
+	  .notes-print h1 {
+	    color: #000;
+	    font: 700 13pt/1.2 Georgia, "Times New Roman", serif;
+	    letter-spacing: 0;
+	    margin: 0 0 8pt;
+	    break-after: avoid;
+	  }
 
-  .notes-print-entry {
-    margin: 0 0 18pt;
-    break-inside: avoid;
-  }
+	  .notes-print-entry {
+	    margin: 0 0 12pt;
+	    break-inside: avoid;
+	  }
 
   .notes-print-name {
     font-weight: 700;
