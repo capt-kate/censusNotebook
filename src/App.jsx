@@ -7773,20 +7773,20 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   Save one license-protected cloud backup of your project data, then restore it on another device after restoring Pro.
                 </p>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-                  <button
-                    type="button"
-                    onClick={saveCloudBackup}
-                    style={isProLicense ? proExportButtonStyle : lightButtonStyle}
-                  >
-                    Back Up to Cloud
-                  </button>
-                  <button
-                    type="button"
-                    onClick={restoreCloudBackup}
-                    style={isProLicense ? proExportButtonStyle : lightButtonStyle}
-                  >
-                    Restore Cloud Backup
-                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={saveCloudBackup}
+	                    style={proExportButtonStyle}
+	                  >
+	                    Back Up to Cloud
+	                  </button>
+	                  <button
+	                    type="button"
+	                    onClick={restoreCloudBackup}
+	                    style={proExportButtonStyle}
+	                  >
+	                    Restore Cloud Backup
+	                  </button>
                 </div>
                 {cloudBackupMessage && (
                   <p style={{ margin: "10px 0 0", color: "#374151", fontSize: "14px", fontWeight: "700" }}>
