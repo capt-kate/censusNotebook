@@ -114,6 +114,16 @@ code {
   display: none;
 }
 
+@page notes {
+  margin: 0.6in 0.65in;
+
+  @top-right {
+    content: "Page " counter(page);
+    color: #000;
+    font: 700 10pt Georgia, "Times New Roman", serif;
+  }
+}
+
 @media print {
   html {
     background: #fff !important;
@@ -154,6 +164,7 @@ code {
 	    margin: 0;
 	    padding: 0;
 	    break-before: auto;
+	    page: notes;
 	  }
 
 	  .notes-print-table {
@@ -189,7 +200,7 @@ code {
 	  }
 
 	  .notes-print-page-number::before {
-	    content: "Page " counter(page);
+	    content: "";
 	  }
 
 	  .notes-print-entry {
