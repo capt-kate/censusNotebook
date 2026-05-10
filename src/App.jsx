@@ -307,9 +307,138 @@ function downloadFile(filename, text, type = "text/plain;charset=utf-8") {
   URL.revokeObjectURL(url);
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function escapeCsvValue(value) {
   const text = String(value || "");
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function makeRecordsCsv(records, fieldLabels, { includeProject = false } = {}) {
+  const headers = [
+    ...(includeProject ? ["Project"] : []),
+    "Year",
+    "Name",
+    "Location",
+    ...fieldLabels,
+    "Notes",
+    "Research Notes",
+  ];
+  const rows = records.map((record) => [
+    ...(includeProject ? [record.projectName || ""] : []),
+    record.year,
+    record.name,
+    record.location,
+    ...fieldLabels.map((label) => getRecordDetailFieldValue(record, label)),
+    record.notes,
+    record.researchNotes,
+  ]);
+
+  return [headers, ...rows].map((row) => row.map(escapeCsvValue).join(",")).join("\r\n");
+}
+
+function openRecordsPdfPrint(records, fieldLabels, title, { includeProject = false } = {}) {
+  const printWindow = window.open("", "_blank", "noopener,noreferrer");
+  if (!printWindow) {
+    window.alert("Census Notebook could not open the print window. Allow popups, then try again.");
+    return false;
+  }
+
+  const headers = [
+    ...(includeProject ? ["Project"] : []),
+    "Year",
+    "Name",
+    "Location",
+    ...fieldLabels,
+    "Notes",
+    "Research Notes",
+  ];
+  const bodyRows = records.map((record) => [
+    ...(includeProject ? [record.projectName || ""] : []),
+    record.year,
+    record.name,
+    record.location,
+    ...fieldLabels.map((label) => getRecordDetailFieldValue(record, label)),
+    record.notes,
+    record.researchNotes,
+  ]);
+
+  printWindow.document.write(`<!doctype html>
+    <html>
+      <head>
+        <title>${escapeHtml(title)}</title>
+        <style>
+          body {
+            background: #ffffff;
+            color: #111827;
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 24px;
+          }
+          h1 {
+            font-size: 22px;
+            margin: 0 0 6px;
+          }
+          p {
+            color: #4b5563;
+            margin: 0 0 18px;
+          }
+          table {
+            border-collapse: collapse;
+            font-size: 10px;
+            width: 100%;
+          }
+          th,
+          td {
+            border: 1px solid #d1d5db;
+            padding: 5px 6px;
+            text-align: left;
+            vertical-align: top;
+          }
+          th {
+            background: #f3f4f6;
+            font-weight: 700;
+          }
+          @page {
+            margin: 0.35in;
+            size: landscape;
+          }
+          @media print {
+            body {
+              margin: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(title)}</h1>
+        <p>${records.length} ${records.length === 1 ? "record" : "records"} exported from Census Notebook. Use Save as PDF in the print dialog.</p>
+        <table>
+          <thead>
+            <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${bodyRows.map((row) => `
+              <tr>${row.map((value) => `<td>${escapeHtml(value || "—")}</td>`).join("")}</tr>
+            `).join("")}
+          </tbody>
+        </table>
+        <script>
+          window.addEventListener("load", () => {
+            window.focus();
+            window.print();
+          });
+        </script>
+      </body>
+    </html>`);
+  printWindow.document.close();
+  return true;
 }
 
 function makeTemplateCsv(template) {
@@ -1871,7 +2000,7 @@ export default function App() {
     ? data.projects.find((project) => project.id === currentNotesParams.get("project"))
     : null;
   const currentNotesRecord = currentNotesProject?.records.find((record) => record.id === currentNotesParams?.get("record"));
-  const currentNotesRecords = currentNotesProject?.records || [];
+  const currentNotesRecords = useMemo(() => currentNotesProject?.records || [], [currentNotesProject?.records]);
   const visibleNotesRecords = currentNotesRecords.filter(
     (record) =>
       String(record.researchNotes || "").trim() ||
@@ -1881,9 +2010,14 @@ export default function App() {
 
   useEffect(() => {
     if (!currentPage.startsWith("#/notes")) return;
-    setRecordNotesDrafts(
-      Object.fromEntries(currentNotesRecords.map((record) => [record.id, record.researchNotes || ""]))
-    );
+    let isCurrent = true;
+    const nextDrafts = Object.fromEntries(currentNotesRecords.map((record) => [record.id, record.researchNotes || ""]));
+    queueMicrotask(() => {
+      if (isCurrent) setRecordNotesDrafts(nextDrafts);
+    });
+    return () => {
+      isCurrent = false;
+    };
   }, [currentPage, currentNotesProject?.id, currentNotesRecords]);
 
   const allTemplates = useMemo(() => [...censusTemplates, ...customTemplates], [customTemplates]);
@@ -2762,6 +2896,25 @@ export default function App() {
     downloadFile(`census-notebook-backup-${timestamp}.json`, JSON.stringify(data, null, 2));
   }
 
+  function requireProExport() {
+    if (isProLicense) return true;
+    setShowProjectPaywall(true);
+    setStatusMessage("CSV and PDF export are available in Pro.");
+    return false;
+  }
+
+  function exportRecordsCsv(records, fieldLabels, filename, options) {
+    if (!requireProExport()) return;
+    downloadFile(filename, makeRecordsCsv(records, fieldLabels, options), "text/csv;charset=utf-8");
+    setStatusMessage("CSV export downloaded.");
+  }
+
+  function exportRecordsPdf(records, fieldLabels, title, options) {
+    if (!requireProExport()) return;
+    const didOpen = openRecordsPdfPrint(records, fieldLabels, title, options);
+    if (didOpen) setStatusMessage("PDF export opened. Choose Save as PDF in the print dialog.");
+  }
+
   function importBackupFile(event) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -3350,6 +3503,8 @@ export default function App() {
     const recordsByYearFieldLabels =
       yearTemplateFieldLabels.length > 0 ? yearTemplateFieldLabels : recordsByYearFallbackFieldLabels;
     const recordsByYearTableMinWidth = `${Math.max(1160, 560 + recordsByYearFieldLabels.length * 140)}px`;
+    const recordsByYearExportName = sanitizeFilePart(selectedRecordsByYear || "all-years") || "records-by-year";
+    const recordsByYearExportTitle = `Census Records - ${selectedRecordsByYear || "All Years"}`;
 
     return (
       <div style={pageStyle}>
@@ -3396,19 +3551,58 @@ export default function App() {
             </section>
 
             <section style={cardStyle}>
-              <div style={{ marginBottom: "14px" }}>
-                <h2 style={sectionTitleStyle}>Records</h2>
-                <input
-                  value={recordsByYearFilter}
-                  onChange={(event) => {
-                    setRecordsByYearFilter(event.target.value);
-                    setRecordsByYearLimit(PROJECT_RECORD_RENDER_LIMIT);
-                  }}
-                  placeholder="Filter name, location, note..."
-                  style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
-                />
+              <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start", flexWrap: "wrap", marginBottom: "14px" }}>
+                <div>
+                  <h2 style={sectionTitleStyle}>Records</h2>
+                  <input
+                    value={recordsByYearFilter}
+                    onChange={(event) => {
+                      setRecordsByYearFilter(event.target.value);
+                      setRecordsByYearLimit(PROJECT_RECORD_RENDER_LIMIT);
+                    }}
+                    placeholder="Filter name, location, note..."
+                    style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportRecordsCsv(
+                        recordsByYear,
+                        recordsByYearFieldLabels,
+                        `${recordsByYearExportName}-census-records.csv`,
+                        { includeProject: true }
+                      )
+                    }
+                    disabled={recordsByYear.length === 0}
+                    style={recordsByYear.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    title={isProLicense ? "Export CSV" : "Pro export"}
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportRecordsPdf(
+                        recordsByYear,
+                        recordsByYearFieldLabels,
+                        recordsByYearExportTitle,
+                        { includeProject: true }
+                      )
+                    }
+                    disabled={recordsByYear.length === 0}
+                    style={recordsByYear.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    title={isProLicense ? "Export PDF" : "Pro export"}
+                  >
+                    Export PDF
+                  </button>
+                </div>
+              </div>
+              <div>
                 <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
                   Click the header to sort by Surname, Location, or Page.
+                  {!isProLicense && " CSV and PDF export require Pro."}
                 </p>
               </div>
 
@@ -3870,6 +4064,16 @@ export default function App() {
       return left.localeCompare(right);
     });
     const projectDataTableMinWidth = `${Math.max(1060, 520 + projectDataFieldLabels.length * 140)}px`;
+    const projectExportRecords = visibleProjects.flatMap((project) =>
+      getSortedProjectRecords(filteredProjectRecords.get(project.id) || []).map((record) => ({
+        ...record,
+        projectName: project.name,
+      }))
+    );
+    const projectExportLabel = selectedProjectId === "all"
+      ? "All Projects"
+      : visibleProjects[0]?.name || "Project Records";
+    const projectExportName = sanitizeFilePart(projectExportLabel) || "project-records";
 
     return (
       <div style={pageStyle}>
@@ -3931,22 +4135,57 @@ export default function App() {
                     style={{ ...inputStyle, marginTop: "8px", minWidth: "260px", maxWidth: "360px", width: "100%" }}
                   />
                 </div>
-                <button
-                  onClick={deleteSelectedProjectRecords}
-                  disabled={selectedProjectRecordIds.length === 0}
-                  style={{
-                    ...buttonStyle,
-                    background: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
-                    borderColor: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
-                    cursor: selectedProjectRecordIds.length === 0 ? "not-allowed" : "pointer",
-                    marginTop: "2px",
-                  }}
-                >
-                  Delete Selected{selectedProjectRecordIds.length > 0 ? ` (${selectedProjectRecordIds.length})` : ""}
-                </button>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportRecordsCsv(
+                        projectExportRecords,
+                        projectDataFieldLabels,
+                        `${projectExportName}-census-records.csv`,
+                        { includeProject: selectedProjectId === "all" }
+                      )
+                    }
+                    disabled={projectExportRecords.length === 0}
+                    style={projectExportRecords.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    title={isProLicense ? "Export CSV" : "Pro export"}
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      exportRecordsPdf(
+                        projectExportRecords,
+                        projectDataFieldLabels,
+                        `${projectExportLabel} Census Records`,
+                        { includeProject: selectedProjectId === "all" }
+                      )
+                    }
+                    disabled={projectExportRecords.length === 0}
+                    style={projectExportRecords.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    title={isProLicense ? "Export PDF" : "Pro export"}
+                  >
+                    Export PDF
+                  </button>
+                  <button
+                    onClick={deleteSelectedProjectRecords}
+                    disabled={selectedProjectRecordIds.length === 0}
+                    style={{
+                      ...buttonStyle,
+                      background: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
+                      borderColor: selectedProjectRecordIds.length === 0 ? "#9ca3af" : "#b91c1c",
+                      cursor: selectedProjectRecordIds.length === 0 ? "not-allowed" : "pointer",
+                      marginTop: "2px",
+                    }}
+                  >
+                    Delete Selected{selectedProjectRecordIds.length > 0 ? ` (${selectedProjectRecordIds.length})` : ""}
+                  </button>
+                </div>
               </div>
               <p style={{ margin: "6px 0 0", color: "#4b5563" }}>
                 Click the header to sort by Surname, Location, or Page.
+                {!isProLicense && " CSV and PDF export require Pro."}
               </p>
             </section>
 
@@ -6500,9 +6739,6 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
               Census Notebook helps you turn scattered census records into
               <br />
               organized, searchable timelines for genealogy research.
-            </p>
-            <p>
-              Census Notebook does not collect your data to the cloud.
             </p>
           </div>
           <p style={{ marginTop: "16px", color: apiConnected ? "#047857" : "#92400e", fontWeight: "700" }}>

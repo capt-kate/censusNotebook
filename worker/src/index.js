@@ -34,12 +34,6 @@ function generateLicenseKey() {
   return `CN-${code.slice(0, 4)}-${code.slice(4, 8)}-${code.slice(8, 12)}`;
 }
 
-async function sha256Hex(value) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
 function timingSafeEqual(left, right) {
   const leftBytes = new TextEncoder().encode(left);
   const rightBytes = new TextEncoder().encode(right);
@@ -201,11 +195,7 @@ function publicLicensePayload(license) {
 
 async function sendLicenseEmail(env, license, productType) {
   if (!env.RESEND_API_KEY || !env.LICENSE_EMAIL_FROM || !license?.email) {
-    console.warn("Skipping license email", {
-      hasResendKey: Boolean(env.RESEND_API_KEY),
-      hasFromAddress: Boolean(env.LICENSE_EMAIL_FROM),
-      hasEmail: Boolean(license?.email),
-    });
+    console.warn("Skipping license email because email settings are incomplete.");
     return;
   }
 
@@ -224,13 +214,6 @@ async function sendLicenseEmail(env, license, productType) {
     </div>
   `;
 
-  console.log("Sending license email", {
-    to: license.email,
-    productType,
-    plan: license.plan,
-    extraProjectSlots: license.extra_project_slots,
-  });
-
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -248,11 +231,8 @@ async function sendLicenseEmail(env, license, productType) {
   if (!response.ok) {
     const message = await response.text();
     console.error("Resend email failed", response.status, message);
-    throw new Error(`Resend email failed with status ${response.status}.`);
+    return;
   }
-
-  const result = await response.json();
-  console.log("Resend email accepted", { id: result.id });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -266,13 +246,6 @@ async function handleStripeWebhook(request, env) {
 
   const session = event.data.object;
   const productType = getProductType(session, env);
-  console.log("Stripe checkout completed", {
-    sessionId: session.id,
-    customerEmail: normalizeEmail(session.customer_details?.email || session.customer_email),
-    amountTotal: session.amount_total,
-    paymentLink: session.payment_link,
-    productType,
-  });
   if (!productType) return errorResponse("Unknown Stripe product type.", 400);
 
   const license = productType === PRODUCT_TYPES.coffee

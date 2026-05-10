@@ -42,7 +42,7 @@ npx wrangler secret put RESEND_API_KEY
 Then uncomment/add this variable in `wrangler.toml`:
 
 ```toml
-LICENSE_EMAIL_FROM = "Census Notebook <licenses@yourdomain.com>"
+LICENSE_EMAIL_FROM = "Census Notebook <sales@garuda-buddha.com>"
 ```
 
 After a Pro or extra-project purchase, the Worker will send a separate license email with the license key and restore instructions.
