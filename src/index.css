@@ -173,4 +173,114 @@ code {
   .notes-print-text {
     white-space: pre-wrap;
   }
+
+  .timeline-page,
+  .favorites-page,
+  .household-page {
+    min-width: 0 !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    color: #000 !important;
+    font: 10pt/1.35 Arial, Helvetica, sans-serif;
+    text-align: left !important;
+  }
+
+  .timeline-page > div,
+  .favorites-page > div,
+  .household-page > div {
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  .timeline-page header,
+  .favorites-page header,
+  .household-page header {
+    padding: 0 !important;
+    border: 0 !important;
+    margin: 0 0 12pt !important;
+    text-align: left !important;
+  }
+
+  .timeline-page h1,
+  .favorites-page h1,
+  .household-page h1 {
+    color: #000 !important;
+    font: 700 18pt/1.2 Arial, Helvetica, sans-serif !important;
+    letter-spacing: 0 !important;
+    margin: 0 0 12pt !important;
+  }
+
+  .timeline-page article,
+  .favorites-page main,
+  .household-page article {
+    border: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    padding: 0 !important;
+    line-height: 1.35 !important;
+  }
+
+  .timeline-results-print,
+  .favorites-results-print,
+  .household-results-print {
+    border: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .timeline-results-print h3,
+  .favorites-results-print h2,
+  .household-results-print h3 {
+    color: #000 !important;
+    font: 700 13pt/1.2 Arial, Helvetica, sans-serif !important;
+    margin: 0 0 8pt !important;
+  }
+
+  .timeline-results-print div,
+  .favorites-results-print div,
+  .household-results-print div {
+    overflow: visible !important;
+  }
+
+  .timeline-results-print table,
+  .favorites-results-print table,
+  .household-results-print table {
+    border-collapse: collapse !important;
+    font-size: 8.5pt !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .timeline-results-print th,
+  .timeline-results-print td,
+  .favorites-results-print th,
+  .favorites-results-print td,
+  .household-results-print th,
+  .household-results-print td {
+    border-bottom: 1px solid #cbd5e1 !important;
+    color: #000 !important;
+    padding: 5pt !important;
+    text-align: left !important;
+    vertical-align: top !important;
+  }
+
+  .timeline-results-print a,
+  .favorites-results-print a,
+  .household-results-print a {
+    color: #000 !important;
+    text-decoration: none !important;
+  }
+
+  .household-results-print h4 {
+    color: #000 !important;
+    font: 700 11pt/1.25 Arial, Helvetica, sans-serif !important;
+    margin: 10pt 0 4pt !important;
+    break-after: avoid;
+  }
+
+  .household-results-print p {
+    color: #000 !important;
+    font-size: 9pt !important;
+    margin: 0 0 6pt !important;
+  }
 }

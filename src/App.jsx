@@ -4087,20 +4087,20 @@ export default function App() {
 
   if (currentPage === "#/favorites") {
     return (
-      <div style={pageStyle}>
+      <div className="favorites-page" style={pageStyle}>
         <div style={shellStyle}>
           <header style={headerStyle}>
-            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+            <p className="no-print" style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Favorites
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Favorite Records</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+            <a className="no-print" href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
 
           <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
-            <section style={cardStyle}>
+            <section className="favorites-results-print" style={cardStyle}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "baseline", flexWrap: "wrap" }}>
                 <h2 style={sectionTitleStyle}>Starred Records</h2>
                 <span style={{ color: "#6b7280", fontWeight: "700" }}>
@@ -4117,7 +4117,7 @@ export default function App() {
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth</th>
                       <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Project</th>
-                      <th style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                      <th className="no-print" style={{ padding: "12px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -4184,7 +4184,7 @@ export default function App() {
                             )}
                           </td>
                           <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>{record.projectName}</td>
-                          <td style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
+                          <td className="no-print" style={{ padding: "12px", borderBottom: "1px solid #e5e7eb", width: "150px" }}>
                             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                               {isEditing ? (
                                 <>
@@ -4895,26 +4895,26 @@ export default function App() {
 
   if (currentPage === "#/analysis/person-timeline") {
     return (
-      <div style={pageStyle}>
+      <div className="timeline-page" style={pageStyle}>
         <div style={shellStyle}>
           <header style={headerStyle}>
-            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+            <p className="no-print" style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Person Timeline</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+            <a className="no-print" href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
 
           <article style={helpArticleStyle}>
-            <h2 style={helpHeadingStyle}>Follow one individual across time</h2>
-            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+            <h2 className="no-print" style={helpHeadingStyle}>Follow one individual across time</h2>
+            <p className="no-print" style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
               Person Timeline will gather every census entry for one person and line those records up
               chronologically so changes are easier to see.
             </p>
 
-            <section style={helpSectionNoDividerStyle}>
+            <section className="no-print" style={helpSectionNoDividerStyle}>
               <h3>Search for a person</h3>
               <form
                 onSubmit={(event) => {
@@ -4959,7 +4959,7 @@ export default function App() {
             </section>
 
             {timelineHasRun && (
-              <section style={helpSectionStyle}>
+              <section className="timeline-results-print" style={helpSectionStyle}>
                 <h3>Results</h3>
                 {personTimelineResults.length > 0 ? (
                   <div style={{ overflowX: "auto" }}>
@@ -4972,7 +4972,7 @@ export default function App() {
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Location</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Occupation</th>
                           <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Birth Place</th>
-                          <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                          <th className="no-print" style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -5032,7 +5032,7 @@ export default function App() {
                               <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>
                                 {getNoteValue(record.notes, ["Birth Place", "Birthplace", "Place of Birth", "Birth Location"]) || "—"}
                               </td>
-                              <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
+                              <td className="no-print" style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
                                 <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                                   {isEditing ? (
                                     <>
@@ -5237,26 +5237,26 @@ export default function App() {
 
   if (currentPage === "#/analysis/household") {
     return (
-      <div style={pageStyle}>
+      <div className="household-page" style={pageStyle}>
         <div style={shellStyle}>
           <header style={headerStyle}>
-            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+            <p className="no-print" style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Analysis
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Household</h1>
-            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+            <a className="no-print" href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
               Back to Home
             </a>
           </header>
 
           <article style={helpArticleStyle}>
-            <h2 style={helpHeadingStyle}>Find household members for a person</h2>
-            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+            <h2 className="no-print" style={helpHeadingStyle}>Find household members for a person</h2>
+            <p className="no-print" style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
               Search for a person, then list the people entered in the same dwelling or household
               group for that census record.
             </p>
 
-            <section style={helpSectionNoDividerStyle}>
+            <section className="no-print" style={helpSectionNoDividerStyle}>
               <h3>Search for a person</h3>
               <form
                 onSubmit={(event) => {
@@ -5295,7 +5295,7 @@ export default function App() {
             </section>
 
             {householdHasRun && (
-              <section style={helpSectionStyle}>
+              <section className="household-results-print" style={helpSectionStyle}>
                 <h3>Results</h3>
                 {householdResults.length > 0 ? (
                   householdResults.map((result) => (
@@ -5315,7 +5315,7 @@ export default function App() {
                               <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Name</th>
                               <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Relationship</th>
                               <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb" }}>Age</th>
-                              <th style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
+                              <th className="no-print" style={{ padding: "10px", textAlign: "left", borderBottom: "1px solid #e5e7eb", width: "150px" }}>Actions</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -5345,7 +5345,7 @@ export default function App() {
                                   </td>
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getRecordRelationship(member) || "—"}</td>
                                   <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb" }}>{getNoteValue(member.notes, ["Age"]) || "—"}</td>
-                                  <td style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
+                                  <td className="no-print" style={{ padding: "10px", borderBottom: "1px solid #e5e7eb", width: "180px" }}>
                                     <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                                       {isEditing ? (
                                         <>
