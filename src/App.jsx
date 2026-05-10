@@ -3563,6 +3563,7 @@ export default function App() {
     const recordsByYearFieldLabels =
       yearTemplateFieldLabels.length > 0 ? yearTemplateFieldLabels : recordsByYearFallbackFieldLabels;
     const recordsByYearTableMinWidth = `${Math.max(1160, 560 + recordsByYearFieldLabels.length * 140)}px`;
+    const visibleRecordsByYear = recordsByYear.slice(0, recordsByYearLimit);
     const recordsByYearExportName = sanitizeFilePart(selectedRecordsByYear || "all-years") || "records-by-year";
     const recordsByYearExportTitle = `Census Records - ${selectedRecordsByYear || "All Years"}`;
 
@@ -3629,14 +3630,14 @@ export default function App() {
                     type="button"
                     onClick={() =>
                       exportRecordsCsv(
-                        recordsByYear,
+                        visibleRecordsByYear,
                         recordsByYearFieldLabels,
                         `${recordsByYearExportName}-census-records.csv`,
                         { includeProject: true }
                       )
                     }
-                    disabled={recordsByYear.length === 0}
-                    style={recordsByYear.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
+                    disabled={visibleRecordsByYear.length === 0}
+                    style={visibleRecordsByYear.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
                     title={isProLicense ? "Export CSV" : "Pro export"}
                   >
                     Export CSV
@@ -3645,14 +3646,14 @@ export default function App() {
                     type="button"
                     onClick={() =>
                       exportRecordsPdf(
-                        recordsByYear,
+                        visibleRecordsByYear,
                         recordsByYearFieldLabels,
                         recordsByYearExportTitle,
                         { includeProject: true }
                       )
                     }
-                    disabled={recordsByYear.length === 0}
-                    style={recordsByYear.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
+                    disabled={visibleRecordsByYear.length === 0}
+                    style={visibleRecordsByYear.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
                     title={isProLicense ? "Export PDF" : "Pro export"}
                   >
                     Export PDF
@@ -3687,7 +3688,7 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {recordsByYear.slice(0, recordsByYearLimit).map((record) => {
+                    {visibleRecordsByYear.map((record) => {
                       const isEditing = editingSearchRecordId === record.id;
 
                       return (
@@ -4125,10 +4126,12 @@ export default function App() {
     });
     const projectDataTableMinWidth = `${Math.max(1060, 520 + projectDataFieldLabels.length * 140)}px`;
     const projectExportRecords = visibleProjects.flatMap((project) =>
-      getSortedProjectRecords(filteredProjectRecords.get(project.id) || []).map((record) => ({
-        ...record,
-        projectName: project.name,
-      }))
+      getSortedProjectRecords(filteredProjectRecords.get(project.id) || [])
+        .slice(0, getProjectRecordLimit(project.id))
+        .map((record) => ({
+          ...record,
+          projectName: project.name,
+        }))
     );
     const projectExportLabel = selectedProjectId === "all"
       ? "All Projects"
