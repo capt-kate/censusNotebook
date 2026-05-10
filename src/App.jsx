@@ -15,6 +15,7 @@ const DESKTOP_APP_DOWNLOAD_FILENAME = "Census Notebook-1.2.0-mac.zip";
 const STRIPE_PRO_CHECKOUT_URL = "https://buy.stripe.com/fZu6oB0i26Hw1wD09a5Vu00";
 const STRIPE_EXTRA_PROJECT_CHECKOUT_URL = "https://buy.stripe.com/fZu14h3ue0j83ELbRS5Vu01";
 const STRIPE_COFFEE_CHECKOUT_URL = "https://buy.stripe.com/00w9AN4yi3vka391de5Vu02";
+const LICENSE_SERVER_URL = "https://census-notebook-license.katemontressor.workers.dev";
 const INDEXED_DB_NAME = "census-notebook-local-data";
 const INDEXED_DB_STORE = "app-state";
 const INDEXED_DB_DATA_KEY = "projects";
@@ -23,6 +24,9 @@ const emptyData = { activeProjectId: "", projects: [] };
 const defaultLicense = {
   plan: "free",
   extraProjectSlots: 0,
+  email: "",
+  licenseKey: "",
+  updatedAt: "",
 };
 
 function uid(prefix = "id") {
@@ -135,6 +139,9 @@ function normalizeLicense(license) {
   return {
     plan,
     extraProjectSlots: Math.max(0, Number.parseInt(license?.extraProjectSlots, 10) || 0),
+    email: String(license?.email || "").trim(),
+    licenseKey: String(license?.licenseKey || "").trim(),
+    updatedAt: String(license?.updatedAt || "").trim(),
   };
 }
 
@@ -1714,6 +1721,8 @@ export default function App() {
   const [newProjectName, setNewProjectName] = useState("");
   const [mergeTargetProjectId, setMergeTargetProjectId] = useState("");
   const [license, setLicense] = useState(loadLicense);
+  const [licenseLookup, setLicenseLookup] = useState(() => loadLicense().email || loadLicense().licenseKey || "");
+  const [licenseLookupMessage, setLicenseLookupMessage] = useState("");
   const [showProjectPaywall, setShowProjectPaywall] = useState(false);
   const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
@@ -2289,6 +2298,48 @@ export default function App() {
   function openBuyMeCoffee() {
     window.open(STRIPE_COFFEE_CHECKOUT_URL, "_blank", "noopener,noreferrer");
     setStatusMessage("Stripe checkout opened for Buy Me a Coffee.");
+  }
+
+  async function restoreLicense() {
+    const lookup = licenseLookup.trim();
+    if (!lookup) {
+      setLicenseLookupMessage("Enter the email used at checkout or your license key.");
+      return;
+    }
+
+    const isLicenseKey = lookup.toUpperCase().startsWith("CN-");
+    const query = isLicenseKey
+      ? `licenseKey=${encodeURIComponent(lookup)}`
+      : `email=${encodeURIComponent(lookup)}`;
+
+    setLicenseLookupMessage("Checking license...");
+
+    try {
+      const response = await fetch(`${LICENSE_SERVER_URL}/license/status?${query}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "License lookup failed.");
+      }
+
+      if (!result.valid) {
+        setLicenseLookupMessage("No license found for that email or license key.");
+        return;
+      }
+
+      const restoredLicense = normalizeLicense(result);
+      setLicense(restoredLicense);
+      setLicenseLookup(restoredLicense.email || restoredLicense.licenseKey || lookup);
+      setShowProjectPaywall(false);
+      setLicenseLookupMessage(
+        restoredLicense.plan === "pro"
+          ? "Pro license restored."
+          : `License restored with ${restoredLicense.extraProjectSlots} extra project ${restoredLicense.extraProjectSlots === 1 ? "slot" : "slots"}.`
+      );
+      setStatusMessage("License restored from Stripe purchase.");
+    } catch (error) {
+      setLicenseLookupMessage(error.message || "Could not restore license right now.");
+    }
   }
 
   function setSmartMatchDecision(matchId, decision) {
@@ -5285,6 +5336,15 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
+              <h3>Restoring a Purchase</h3>
+              <p>
+                After checkout, return to Census Notebook and use <strong>Restore Purchase</strong>{" "}
+                in the Support &amp; Upgrades section. Enter the email address used at checkout or
+                your license key to activate Pro or extra project slots on this device.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
               <h3>No Refunds</h3>
               <p>
                 Payments are final. Because purchases unlock lifetime access to digital features,
@@ -6627,6 +6687,43 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                         Upgrade to Pro - $99
                       </button>
                     </>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    marginTop: "14px",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    border: "1px solid #e5e7eb",
+                    background: "#fff",
+                    textAlign: "left",
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 8px", fontSize: "14px", color: "#374151" }}>License</h4>
+                  <p style={{ margin: "0 0 8px", color: "#4b5563", fontSize: "13px", lineHeight: 1.4 }}>
+                    {isProLicense
+                      ? "Pro lifetime is active."
+                      : `Free version: ${FREE_PROJECT_LIMIT} projects included${license.extraProjectSlots ? `, plus ${license.extraProjectSlots} extra ${license.extraProjectSlots === 1 ? "slot" : "slots"}` : ""}.`}
+                  </p>
+                  {license.email && (
+                    <p style={{ margin: "0 0 8px", color: "#6b7280", fontSize: "12px" }}>
+                      Restored for {license.email}
+                    </p>
+                  )}
+                  <input
+                    value={licenseLookup}
+                    onChange={(event) => setLicenseLookup(event.target.value)}
+                    placeholder="Email or license key"
+                    style={{ ...inputStyle, width: "100%", boxSizing: "border-box", marginBottom: "8px" }}
+                  />
+                  <button type="button" onClick={restoreLicense} style={{ ...lightButtonStyle, width: "100%" }}>
+                    Restore Purchase
+                  </button>
+                  {licenseLookupMessage && (
+                    <p style={{ margin: "8px 0 0", color: "#4b5563", fontSize: "12px", lineHeight: 1.35 }}>
+                      {licenseLookupMessage}
+                    </p>
                   )}
                 </div>
               </div>
