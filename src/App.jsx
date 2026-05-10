@@ -6085,12 +6085,8 @@ export default function App() {
 	                {PRO_DESKTOP_MAC_DOWNLOAD_URL ? (
 	                  <a
 	                    href={PRO_DESKTOP_MAC_DOWNLOAD_URL}
-<<<<<<< HEAD
 	                    target="_blank"
 	                    rel="noopener noreferrer"
-=======
-	                    download
->>>>>>> 030232c9c2bd72f87cbf111a07a5112b37d92d67
 	                    style={{ ...proExportButtonStyle, display: "inline-block", textDecoration: "none" }}
 	                  >
 	                    Download Pro Desktop App for Mac
@@ -6103,12 +6099,8 @@ export default function App() {
 	                {PRO_DESKTOP_WINDOWS_DOWNLOAD_URL ? (
 	                  <a
 	                    href={PRO_DESKTOP_WINDOWS_DOWNLOAD_URL}
-<<<<<<< HEAD
 	                    target="_blank"
 	                    rel="noopener noreferrer"
-=======
-	                    download
->>>>>>> 030232c9c2bd72f87cbf111a07a5112b37d92d67
 	                    style={{ ...proExportButtonStyle, display: "inline-block", textDecoration: "none" }}
 	                  >
 	                    Download Pro Desktop App for Windows
@@ -7555,7 +7547,6 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                       </button>
 	                    </>
 	                  )}
-<<<<<<< HEAD
 		                  {isProLicense && (
 		                    <>
 		                      {PRO_DESKTOP_MAC_DOWNLOAD_URL ? (
@@ -7569,22 +7560,22 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 		                            maxWidth: "100%",
 		                            boxSizing: "border-box",
 		                            display: "inline-block",
-			                            textAlign: "center",
-			                            textDecoration: "none",
-			                            fontSize: "12px",
-			                            fontWeight: "400",
-			                            padding: "6px 8px",
-			                            whiteSpace: "normal",
-			                            lineHeight: 1.25,
-			                          }}
-			                        >
-			                          Download Mac Pro App
-			                        </a>
-			                      ) : (
-			                        <button type="button" disabled style={{ ...disabledExportButtonStyle, justifySelf: "center", maxWidth: "100%", fontSize: "12px", fontWeight: "400", padding: "6px 8px", whiteSpace: "normal", lineHeight: 1.25 }}>
-			                          Download Mac Pro App - Cloudflare setup pending
-			                        </button>
-			                      )}
+		                            textAlign: "center",
+		                            textDecoration: "none",
+		                            fontSize: "12px",
+		                            fontWeight: "400",
+		                            padding: "6px 8px",
+		                            whiteSpace: "normal",
+		                            lineHeight: 1.25,
+		                          }}
+		                        >
+		                          Download Mac Pro App
+		                        </a>
+		                      ) : (
+		                        <button type="button" disabled style={{ ...disabledExportButtonStyle, justifySelf: "center", maxWidth: "100%", fontSize: "12px", fontWeight: "400", padding: "6px 8px", whiteSpace: "normal", lineHeight: 1.25 }}>
+		                          Download Mac Pro App - Cloudflare setup pending
+		                        </button>
+		                      )}
 		                      {PRO_DESKTOP_WINDOWS_DOWNLOAD_URL ? (
 		                        <a
 		                          href={PRO_DESKTOP_WINDOWS_DOWNLOAD_URL}
@@ -7596,54 +7587,24 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 		                            maxWidth: "100%",
 		                            boxSizing: "border-box",
 		                            display: "inline-block",
-			                            textAlign: "center",
-			                            textDecoration: "none",
-			                            fontSize: "12px",
-			                            fontWeight: "400",
-			                            padding: "6px 8px",
-			                            whiteSpace: "normal",
-			                            lineHeight: 1.25,
-			                          }}
-			                        >
-			                          Download Windows Pro App
-			                        </a>
-			                      ) : (
-			                        <button type="button" disabled style={{ ...disabledExportButtonStyle, justifySelf: "center", maxWidth: "100%", fontSize: "12px", fontWeight: "400", padding: "6px 8px", whiteSpace: "normal", lineHeight: 1.25 }}>
-			                          Download Windows Pro App - Cloudflare setup pending
-			                        </button>
+		                            textAlign: "center",
+		                            textDecoration: "none",
+		                            fontSize: "12px",
+		                            fontWeight: "400",
+		                            padding: "6px 8px",
+		                            whiteSpace: "normal",
+		                            lineHeight: 1.25,
+		                          }}
+		                        >
+		                          Download Windows Pro App
+		                        </a>
+		                      ) : (
+		                        <button type="button" disabled style={{ ...disabledExportButtonStyle, justifySelf: "center", maxWidth: "100%", fontSize: "12px", fontWeight: "400", padding: "6px 8px", whiteSpace: "normal", lineHeight: 1.25 }}>
+		                          Download Windows Pro App - Cloudflare setup pending
+		                        </button>
 		                      )}
-=======
-	                  {isProLicense && (
-	                    <>
-	                      {PRO_DESKTOP_MAC_DOWNLOAD_URL ? (
-	                        <a
-	                          href={PRO_DESKTOP_MAC_DOWNLOAD_URL}
-	                          download
-	                          style={{ ...proExportButtonStyle, width: "100%", boxSizing: "border-box", display: "block", textAlign: "center", textDecoration: "none" }}
-	                        >
-	                          Download Pro Desktop App for Mac
-	                        </a>
-	                      ) : (
-	                        <button type="button" disabled style={{ ...disabledExportButtonStyle, width: "100%" }}>
-	                          Download Pro Desktop App for Mac - Cloudflare setup pending
-	                        </button>
-	                      )}
-	                      {PRO_DESKTOP_WINDOWS_DOWNLOAD_URL ? (
-	                        <a
-	                          href={PRO_DESKTOP_WINDOWS_DOWNLOAD_URL}
-	                          download
-	                          style={{ ...proExportButtonStyle, width: "100%", boxSizing: "border-box", display: "block", textAlign: "center", textDecoration: "none" }}
-	                        >
-	                          Download Pro Desktop App for Windows
-	                        </a>
-	                      ) : (
-	                        <button type="button" disabled style={{ ...disabledExportButtonStyle, width: "100%" }}>
-	                          Download Pro Desktop App for Windows - Cloudflare setup pending
-	                        </button>
-	                      )}
->>>>>>> 030232c9c2bd72f87cbf111a07a5112b37d92d67
-	                    </>
-	                  )}
+		                    </>
+		                  )}
 	                </div>
 
                 <div
