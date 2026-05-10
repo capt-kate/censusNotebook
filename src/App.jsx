@@ -1933,6 +1933,7 @@ export default function App() {
     lastName: "",
     birth: "",
     location: "",
+    exclude: "",
   });
   const [timelineHasRun, setTimelineHasRun] = useState(false);
   const [neighborsSearch, setNeighborsSearch] = useState({
@@ -2267,6 +2268,7 @@ export default function App() {
     const lastName = timelineSearch.lastName.trim().toLowerCase();
     const birth = timelineSearch.birth.trim().toLowerCase();
     const location = timelineSearch.location.trim().toLowerCase();
+    const exclude = timelineSearch.exclude.trim().toLowerCase();
 
     if (!firstName && !lastName && !birth && !location) return [];
 
@@ -2290,6 +2292,19 @@ export default function App() {
     });
 
     return Array.from(resultById.values())
+      .filter((record) => {
+        if (!exclude) return true;
+        const recordText = [
+          record.year,
+          record.name,
+          record.location,
+          record.household,
+          record.notes,
+        ]
+          .map((value) => String(value || "").toLowerCase())
+          .join(" ");
+        return !recordText.includes(exclude);
+      })
       .sort((a, b) => String(a.year || "").localeCompare(String(b.year || "")));
   }, [allRecords, samePersonRecordGroups, timelineSearch]);
 
@@ -4907,7 +4922,7 @@ export default function App() {
                   setTimelineHasRun(true);
                 }}
               >
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(140px, 1fr))", gap: "10px" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "10px" }}>
                   <input
                     value={timelineSearch.firstName}
                     onChange={(event) => setTimelineSearch((prev) => ({ ...prev, firstName: event.target.value }))}
@@ -4930,6 +4945,12 @@ export default function App() {
                     value={timelineSearch.location}
                     onChange={(event) => setTimelineSearch((prev) => ({ ...prev, location: event.target.value }))}
                     placeholder="Location"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={timelineSearch.exclude}
+                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, exclude: event.target.value }))}
+                    placeholder="Exclude"
                     style={inputStyle}
                   />
                 </div>
