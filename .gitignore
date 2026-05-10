@@ -26,6 +26,7 @@ backend/dist/
 .pyinstaller-cache/
 census-notebook-api.spec
 public/*.zip
+public/downloads/
 .env
 
 # Editor directories and files
