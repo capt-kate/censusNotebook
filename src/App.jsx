@@ -3242,10 +3242,11 @@ export default function App() {
     const noteToAdd = `AI Interpretation - ${new Date().toLocaleDateString()}\n${aiInterpretation.content.trim()}`;
     const nextNotes = existingNotes ? `${existingNotes}\n\n${noteToAdd}` : noteToAdd;
 
+    setAiInterpretation((prev) => ({ ...prev, status: "Adding this content to Notes..." }));
     await updateRecord(project.id, record.id, { researchNotes: nextNotes });
     setRecordNotesDrafts((prev) => ({ ...prev, [record.id]: nextNotes }));
-    setAiInterpretation((prev) => ({ ...prev, status: "AI interpretation copied to Notes." }));
-    showRecordAction("AI interpretation copied to Notes.");
+    setAiInterpretation((prev) => ({ ...prev, status: "This content has been added to Notes." }));
+    showRecordAction("This content has been added to Notes.");
   }
 
   function showRecordAction(message, duration = 1800) {
@@ -4584,15 +4585,35 @@ export default function App() {
                     )}
                   </div>
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {aiInterpretation.content && (
-                      <button
-                        type="button"
-                        onClick={copyAiInterpretationToNotes}
-                        style={proExportButtonStyle}
-                      >
-                        Copy to Notes
-                      </button>
-                    )}
+	                    {aiInterpretation.content && (
+	                      <button
+	                        type="button"
+	                        onClick={copyAiInterpretationToNotes}
+	                        disabled={
+	                          aiInterpretation.status === "Adding this content to Notes..." ||
+	                          aiInterpretation.status === "This content has been added to Notes."
+	                        }
+	                        style={{
+	                          ...proExportButtonStyle,
+	                          opacity:
+	                            aiInterpretation.status === "Adding this content to Notes..." ||
+	                            aiInterpretation.status === "This content has been added to Notes."
+	                              ? 0.75
+	                              : 1,
+	                          cursor:
+	                            aiInterpretation.status === "Adding this content to Notes..." ||
+	                            aiInterpretation.status === "This content has been added to Notes."
+	                              ? "default"
+	                              : "pointer",
+	                        }}
+	                      >
+	                        {aiInterpretation.status === "Adding this content to Notes..."
+	                          ? "Adding..."
+	                          : aiInterpretation.status === "This content has been added to Notes."
+	                            ? "Added to Notes"
+	                            : "Copy to Notes"}
+	                      </button>
+	                    )}
                     <button
                       type="button"
                       onClick={() => setAiInterpretation({ projectId: "", recordId: "", title: "", content: "", status: "", loading: false })}
@@ -4950,11 +4971,12 @@ export default function App() {
                           minHeight: "130px",
                           width: "100%",
                           boxSizing: "border-box",
-                          lineHeight: 1.5,
-                          fontFamily: "Arial, Helvetica, sans-serif",
-                          marginTop: "8px",
-                        }}
-                      />
+	                          lineHeight: 1.5,
+	                          fontFamily: "Arial, Helvetica, sans-serif",
+	                          marginTop: "8px",
+	                          resize: "vertical",
+	                        }}
+	                      />
                     </div>
                   ))}
                   {visibleNotesRecords.length === 0 && (
