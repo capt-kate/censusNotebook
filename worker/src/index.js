@@ -200,7 +200,14 @@ function publicLicensePayload(license) {
 }
 
 async function sendLicenseEmail(env, license, productType) {
-  if (!env.RESEND_API_KEY || !env.LICENSE_EMAIL_FROM || !license?.email) return;
+  if (!env.RESEND_API_KEY || !env.LICENSE_EMAIL_FROM || !license?.email) {
+    console.warn("Skipping license email", {
+      hasResendKey: Boolean(env.RESEND_API_KEY),
+      hasFromAddress: Boolean(env.LICENSE_EMAIL_FROM),
+      hasEmail: Boolean(license?.email),
+    });
+    return;
+  }
 
   const subject = productType === PRODUCT_TYPES.pro
     ? "Your Census Notebook Pro license"
@@ -217,7 +224,14 @@ async function sendLicenseEmail(env, license, productType) {
     </div>
   `;
 
-  await fetch("https://api.resend.com/emails", {
+  console.log("Sending license email", {
+    to: license.email,
+    productType,
+    plan: license.plan,
+    extraProjectSlots: license.extra_project_slots,
+  });
+
+  const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${env.RESEND_API_KEY}`,
@@ -230,6 +244,15 @@ async function sendLicenseEmail(env, license, productType) {
       html,
     }),
   });
+
+  if (!response.ok) {
+    const message = await response.text();
+    console.error("Resend email failed", response.status, message);
+    throw new Error(`Resend email failed with status ${response.status}.`);
+  }
+
+  const result = await response.json();
+  console.log("Resend email accepted", { id: result.id });
 }
 
 async function handleStripeWebhook(request, env) {
@@ -243,6 +266,13 @@ async function handleStripeWebhook(request, env) {
 
   const session = event.data.object;
   const productType = getProductType(session, env);
+  console.log("Stripe checkout completed", {
+    sessionId: session.id,
+    customerEmail: normalizeEmail(session.customer_details?.email || session.customer_email),
+    amountTotal: session.amount_total,
+    paymentLink: session.payment_link,
+    productType,
+  });
   if (!productType) return errorResponse("Unknown Stripe product type.", 400);
 
   const license = productType === PRODUCT_TYPES.coffee
