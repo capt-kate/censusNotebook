@@ -1145,7 +1145,7 @@ function CopyrightFooter({ actionMessage = "" }) {
       )}
       <footer style={{ marginTop: "24px", padding: "18px", textAlign: "center", color: "#6b7280", fontSize: "14px" }}>
         Copyright {new Date().getFullYear()}{" "}
-        <a href="mailto:cousin.kate@olddeadrelatives.com" style={{ color: "inherit", fontWeight: "700" }}>
+        <a href="mailto:sales@garuda-buddha.com" style={{ color: "inherit", fontWeight: "700" }}>
           Kate Montressor
         </a>
         . v1.2. All rights reserved. This app is free for anyone to use. Please do not steal my work.
