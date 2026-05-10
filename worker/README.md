@@ -47,6 +47,22 @@ LICENSE_EMAIL_FROM = "Census Notebook <sales@garuda-buddha.com>"
 
 After a Pro or extra-project purchase, the Worker will send a separate license email with the license key and restore instructions.
 
+## AI Interpret
+
+AI Interpret is a Pro-only feature. The app sends one selected census record to the Worker, the Worker verifies the Pro license, then the Worker calls OpenAI. Your OpenAI API key stays in Cloudflare and is never exposed in the app.
+
+Add your OpenAI API key as a Worker secret:
+
+```bash
+npx wrangler secret put OPENAI_API_KEY
+```
+
+The default model is set in `wrangler.toml`:
+
+```toml
+OPENAI_MODEL = "gpt-5.2"
+```
+
 ## Stripe Webhook Endpoint
 
 In Stripe, create a webhook endpoint:
@@ -104,10 +120,19 @@ curl -X POST https://YOUR-WORKER.workers.dev/cloud-backup \
   -d '{"licenseKey":"CN-XXXX-XXXX-XXXX","data":{"activeProjectId":"","projects":[]}}'
 ```
 
+AI interpretation for a Pro license:
+
+```bash
+curl -X POST https://YOUR-WORKER.workers.dev/ai/interpret-record \
+  -H "Content-Type: application/json" \
+  -d '{"licenseKey":"CN-XXXX-XXXX-XXXX","record":{"year":"1920","name":"Anna Broudy","location":"Massachusetts","household":"Relationship: Wife","notes":"Age: 32; Birthplace: Russia"}}'
+```
+
 ## Notes
 
 - Pro purchases set `plan` to `pro`.
 - Extra project purchases increment `extra_project_slots`.
 - Buy Me a Coffee records the purchase but does not change the license.
 - Pro cloud backup stores one latest project-data backup per license.
+- AI Interpret requires a Pro license and a configured `OPENAI_API_KEY` Worker secret.
 - The Worker verifies Stripe signatures using the raw request body.

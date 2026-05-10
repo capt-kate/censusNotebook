@@ -12,7 +12,6 @@ const LICENSE_STORAGE_KEY = "census-notebook-license-v1";
 const SMART_MATCH_DECISIONS_KEY = "census-notebook-smart-match-decisions-v1";
 const SAME_PERSON_LINKS_KEY = "census-notebook-same-person-links-v1";
 const FREE_PROJECT_LIMIT = 3;
-const DESKTOP_APP_DOWNLOAD_FILENAME = "Census Notebook-1.2.0-mac.zip";
 const STRIPE_PRO_CHECKOUT_URL = "https://buy.stripe.com/fZu6oB0i26Hw1wD09a5Vu00";
 const STRIPE_EXTRA_PROJECT_CHECKOUT_URL = "https://buy.stripe.com/fZu14h3ue0j83ELbRS5Vu01";
 const STRIPE_COFFEE_CHECKOUT_URL = "https://buy.stripe.com/00w9AN4yi3vka391de5Vu02";
@@ -1918,6 +1917,13 @@ export default function App() {
   const [licenseLookup, setLicenseLookup] = useState(() => loadLicense().email || loadLicense().licenseKey || "");
   const [licenseLookupMessage, setLicenseLookupMessage] = useState("");
   const [cloudBackupMessage, setCloudBackupMessage] = useState("");
+  const [aiInterpretation, setAiInterpretation] = useState({
+    recordId: "",
+    title: "",
+    content: "",
+    status: "",
+    loading: false,
+  });
   const [showProjectPaywall, setShowProjectPaywall] = useState(false);
   const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
   const [samePersonLinks, setSamePersonLinks] = useState(loadSamePersonLinks);
@@ -3143,6 +3149,72 @@ export default function App() {
     }
   }
 
+  function requireProAi() {
+    if (isProLicense && license.licenseKey) return true;
+
+    setShowProjectPaywall(true);
+    setAiInterpretation((prev) => ({
+      ...prev,
+      loading: false,
+      status: isProLicense
+        ? "Restore your Pro license key before using AI Interpret."
+        : "AI Interpret is available in Pro.",
+    }));
+    return false;
+  }
+
+  async function interpretRecordWithAi(record, projectName = "") {
+    if (!requireProAi()) return;
+
+    const title = `${record.name || "Unnamed record"}${record.year ? `, ${record.year}` : ""}`;
+    setAiInterpretation({
+      recordId: record.id,
+      title,
+      content: "",
+      status: "Interpreting record...",
+      loading: true,
+    });
+
+    try {
+      const response = await fetch(`${LICENSE_SERVER_URL}/ai/interpret-record`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licenseKey: license.licenseKey,
+          record: {
+            year: record.year,
+            name: record.name,
+            location: record.location,
+            household: record.household,
+            notes: record.notes,
+            projectName,
+          },
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || "AI interpretation failed.");
+      }
+
+      setAiInterpretation({
+        recordId: record.id,
+        title,
+        content: payload.interpretation || "",
+        status: "AI interpretation ready.",
+        loading: false,
+      });
+    } catch (error) {
+      setAiInterpretation({
+        recordId: record.id,
+        title,
+        content: "",
+        status: error.message || "AI interpretation failed.",
+        loading: false,
+      });
+    }
+  }
+
   function showRecordAction(message, duration = 1800) {
     setRecordActionMessage(message);
     window.setTimeout(() => {
@@ -3408,7 +3480,7 @@ export default function App() {
       href: "#/help/pricing",
       label: "Pricing",
       description: "Compare the Free version, extra lifetime project slots, and Pro lifetime access.",
-      keywords: ["pricing", "price", "free", "pro", "upgrade", "paywall", "coffee", "download", "desktop", "$20", "$99", "project slots"],
+      keywords: ["pricing", "price", "free", "pro", "upgrade", "paywall", "coffee", "$20", "$99", "project slots"],
     },
     {
       href: "#/help/census-image-text",
@@ -3501,16 +3573,6 @@ export default function App() {
         ))}
       </select>
     </div>
-  );
-
-  const renderDownloadAppButton = () => (
-    <a
-      href={`/${encodeURIComponent(DESKTOP_APP_DOWNLOAD_FILENAME)}`}
-      download={DESKTOP_APP_DOWNLOAD_FILENAME}
-      style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}
-    >
-      Download the Desktop App
-    </a>
   );
 
   const codeBlockStyle = {
@@ -4477,6 +4539,49 @@ export default function App() {
               </p>
             </section>
 
+            {(aiInterpretation.title || aiInterpretation.status) && (
+              <section style={{ ...cardStyle, borderColor: aiInterpretation.content ? "#86efac" : "rgba(120, 113, 108, 0.16)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "flex-start", flexWrap: "wrap" }}>
+                  <div>
+                    <h2 style={sectionTitleStyle}>AI Interpret</h2>
+                    {aiInterpretation.title && (
+                      <p style={{ margin: 0, color: "#374151", fontWeight: "700" }}>
+                        {aiInterpretation.title}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAiInterpretation({ recordId: "", title: "", content: "", status: "", loading: false })}
+                    style={lightButtonStyle}
+                  >
+                    Close
+                  </button>
+                </div>
+                {aiInterpretation.status && (
+                  <p style={{ margin: "10px 0 0", color: aiInterpretation.content ? "#047857" : "#4b5563", fontWeight: "700" }}>
+                    {aiInterpretation.status}
+                  </p>
+                )}
+                {aiInterpretation.content && (
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "14px",
+                      borderRadius: "10px",
+                      border: "1px solid #bbf7d0",
+                      background: "#f0fdf4",
+                      color: "#111827",
+                      whiteSpace: "pre-wrap",
+                      lineHeight: 1.55,
+                    }}
+                  >
+                    {aiInterpretation.content}
+                  </div>
+                )}
+              </section>
+            )}
+
             {visibleProjects.map((project) => (
               <section key={project.id} style={cardStyle}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "baseline", flexWrap: "wrap" }}>
@@ -4648,6 +4753,21 @@ export default function App() {
                                         />
                                       )}
                                     </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => interpretRecordWithAi(record, project.name)}
+                                      aria-label="AI interpret record"
+                                      title={isProLicense ? "AI Interpret" : "AI Interpret requires Pro"}
+                                      style={{
+                                        ...actionButtonStyle,
+                                        background: aiInterpretation.loading && aiInterpretation.recordId === record.id ? "#bbf7d0" : "#dcfce7",
+                                        borderColor: "#86efac",
+                                        color: "#166534",
+                                        fontWeight: "800",
+                                      }}
+                                    >
+                                      AI
+                                    </button>
                                     <button
                                       onClick={() => deleteRecord(project.id, record.id)}
                                       aria-label="Delete record"
@@ -4877,14 +4997,6 @@ export default function App() {
               {filteredHelpTopics.length === 0 && (
                 <p style={{ margin: "14px 0 0", color: "#6b7280" }}>No help topics match your search.</p>
               )}
-            </section>
-
-            <section style={{ ...cardStyle, padding: "24px", textAlign: "center" }}>
-              <h2 style={sectionTitleStyle}>Desktop App</h2>
-              <p style={{ color: "#4b5563", marginBottom: "14px" }}>
-                Download Census Notebook for Mac when you want to run it as a local desktop app.
-              </p>
-              {renderDownloadAppButton()}
             </section>
           </main>
           <CopyrightFooter actionMessage={recordActionMessage} />
@@ -5663,9 +5775,7 @@ export default function App() {
             <section style={helpSectionStyle}>
               <h3>Ways to use it</h3>
               <p>
-                Census Notebook can run in a modern web browser or as a downloadable desktop app.
-                The desktop version packages the app with its local data service so you do not need
-                to start a separate server.
+                Census Notebook runs in a modern web browser and stores your research locally on your device.
               </p>
               <p>The browser version should work in modern versions of:</p>
               <ul>
@@ -5723,6 +5833,11 @@ export default function App() {
                   with the record, can be reviewed together from the Notes page, and can be printed as
                   a simple project notes sheet.
                 </li>
+                <li>
+                  Use <strong>AI Interpret</strong> from the Project Records page when you want a concise
+                  Pro-only reading of one census record, including research clues, possible follow-up,
+                  and cautions about uncertainty.
+                </li>
               </ul>
               <p>The record action buttons use simple symbols:</p>
               <ul>
@@ -5730,6 +5845,7 @@ export default function App() {
                 <li><strong>★</strong> marks the record as a Favorite. <strong>☆</strong> means it is not currently a Favorite.</li>
                 <li><strong>H</strong> highlights the record. A yellow H means the highlight is turned on.</li>
                 <li><strong>N</strong> opens research Notes. A green N means the record already has notes.</li>
+                <li><strong>AI</strong> interprets a record using the Pro AI feature.</li>
                 <li><strong>X</strong> deletes the record.</li>
               </ul>
             </section>
@@ -5873,6 +5989,7 @@ export default function App() {
                 <li>Unlimited updates.</li>
                 <li>Export to CSV or PDF.</li>
                 <li>Cloud backup and restore for project data.</li>
+                <li>AI Interpret for census records.</li>
               </ul>
             </section>
 
@@ -5900,10 +6017,6 @@ export default function App() {
                 Payments are final. Because purchases unlock lifetime access to digital features,
                 Census Notebook does not offer refunds.
               </p>
-            </section>
-
-            <section style={{ ...helpSectionNoDividerStyle, textAlign: "center", paddingTop: "18px" }}>
-              {renderDownloadAppButton()}
             </section>
           </article>
           <CopyrightFooter actionMessage={recordActionMessage} />
@@ -6758,9 +6871,8 @@ export default function App() {
               <h3>Ways You Could Lose Data</h3>
               <p>
                 Census Notebook stores your project data locally on the device you are using. In a
-                browser, that means browser storage. In the desktop app, that means the app&apos;s local
-                data folder. This keeps your research private, but it also means you are responsible
-                for protecting your data.
+                browser, that means browser storage. This keeps your research private, but it also means
+                you are responsible for protecting your data.
               </p>
               <p>You could lose data if you:</p>
               <ul>
@@ -7773,20 +7885,20 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   Save one license-protected cloud backup of your project data, then restore it on another device after restoring Pro.
                 </p>
                 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
-	                  <button
-	                    type="button"
-	                    onClick={saveCloudBackup}
-	                    style={proExportButtonStyle}
-	                  >
-	                    Back Up to Cloud
-	                  </button>
-	                  <button
-	                    type="button"
-	                    onClick={restoreCloudBackup}
-	                    style={proExportButtonStyle}
-	                  >
-	                    Restore Cloud Backup
-	                  </button>
+                    <button
+                      type="button"
+                      onClick={saveCloudBackup}
+                      style={proExportButtonStyle}
+                    >
+                      Back Up to Cloud
+                    </button>
+                    <button
+                      type="button"
+                      onClick={restoreCloudBackup}
+                      style={proExportButtonStyle}
+                    >
+                      Restore Cloud Backup
+                    </button>
                 </div>
                 {cloudBackupMessage && (
                   <p style={{ margin: "10px 0 0", color: "#374151", fontSize: "14px", fontWeight: "700" }}>

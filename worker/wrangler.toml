@@ -16,3 +16,4 @@ STRIPE_EXTRA_PROJECT_PAYMENT_LINK_ID = "plink_1TVLAH8EqbzWTwvf2Y1ibkzh"
 STRIPE_COFFEE_PAYMENT_LINK_ID = "plink_1TVLCb8EqbzWTwvfb9EirNum"
 
 LICENSE_EMAIL_FROM = "Census Notebook <sales@garuda-buddha.com>"
+OPENAI_MODEL = "gpt-5.2"

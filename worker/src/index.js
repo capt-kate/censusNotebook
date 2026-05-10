@@ -11,6 +11,7 @@ const PRODUCT_TYPES = {
   coffee: "coffee",
 };
 const MAX_BACKUP_BYTES = 4_500_000;
+const MAX_AI_RECORD_BYTES = 12_000;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -367,6 +368,74 @@ async function handleSaveCloudBackup(request, env) {
   return jsonResponse({ saved: true, updatedAt: now });
 }
 
+function getOpenAiOutputText(payload) {
+  if (payload?.output_text) return String(payload.output_text).trim();
+
+  return (payload?.output || [])
+    .flatMap((item) => item.content || [])
+    .map((content) => content.text || "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
+async function handleAiInterpretRecord(request, env) {
+  if (!env.OPENAI_API_KEY) return errorResponse("AI is not configured yet.", 503);
+
+  const body = await request.json().catch(() => ({}));
+  const licenseKey = String(body.licenseKey || "").trim();
+  const record = body.record || {};
+
+  if (!licenseKey) return errorResponse("Provide a license key.", 400);
+  if (!record || typeof record !== "object") return errorResponse("Provide a census record.", 400);
+
+  const license = await findLicenseByKey(env.DB, licenseKey);
+  if (!license) return errorResponse("License not found.", 404);
+  if (license.plan !== "pro") return errorResponse("AI Interpret requires Pro.", 403);
+
+  const recordJson = JSON.stringify({
+    year: record.year || "",
+    name: record.name || "",
+    location: record.location || "",
+    household: record.household || "",
+    notes: record.notes || "",
+    projectName: record.projectName || "",
+  });
+
+  if (new TextEncoder().encode(recordJson).length > MAX_AI_RECORD_BYTES) {
+    return errorResponse("Record is too large to interpret.", 413);
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: env.OPENAI_MODEL || "gpt-5.2",
+      instructions: [
+        "You are helping a genealogist interpret one census record.",
+        "Use only the record details provided. Do not invent facts.",
+        "Be concise, practical, and cautious. Call out uncertainty.",
+        "Return plain text with these headings: Summary, Clues, Possible Follow-Up, Cautions.",
+      ].join(" "),
+      input: `Interpret this Census Notebook record for genealogy research:\n${recordJson}`,
+      max_output_tokens: 900,
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return errorResponse(payload.error?.message || "AI interpretation failed.", response.status);
+  }
+
+  const interpretation = getOpenAiOutputText(payload);
+  if (!interpretation) return errorResponse("AI did not return an interpretation.", 502);
+
+  return jsonResponse({ interpretation });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -390,6 +459,10 @@ export default {
 
       if (request.method === "POST" && url.pathname === "/cloud-backup") {
         return handleSaveCloudBackup(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/ai/interpret-record") {
+        return handleAiInterpretRecord(request, env);
       }
 
       if (request.method === "GET" && url.pathname === "/health") {
