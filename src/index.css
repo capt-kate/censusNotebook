@@ -152,16 +152,35 @@ code {
 	    font: 12pt/1.45 Georgia, "Times New Roman", serif;
 	    text-align: left;
 	    margin: 0;
-	    padding: 22pt 0 0;
+	    padding: 0;
 	    break-before: auto;
 	  }
 
-	  .notes-print::before {
-	    content: attr(data-print-title);
-	    position: fixed;
-	    top: 0;
-	    left: 0;
-	    right: 0;
+	  .notes-print-table {
+	    width: 100%;
+	    border-collapse: collapse;
+	  }
+
+	  .notes-print-table thead {
+	    display: table-header-group;
+	  }
+
+	  .notes-print-table th,
+	  .notes-print-table td {
+	    padding: 0;
+	    border: 0;
+	    text-align: left;
+	    vertical-align: top;
+	  }
+
+	  .notes-print-table th {
+	    padding-bottom: 12pt;
+	  }
+
+	  .notes-print-header {
+	    display: flex;
+	    justify-content: space-between;
+	    gap: 16pt;
 	    padding: 0 0 5pt;
 	    border-bottom: 1px solid #d1d5db;
 	    color: #000;
@@ -169,8 +188,8 @@ code {
 	    letter-spacing: 0;
 	  }
 
-	  .notes-print h1 {
-	    display: none;
+	  .notes-print-page-number::before {
+	    content: "Page " counter(page);
 	  }
 
 	  .notes-print-entry {

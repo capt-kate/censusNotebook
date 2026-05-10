@@ -4998,16 +4998,33 @@ export default function App() {
                   </a>
                 </div>
               </section>
-              <section className="notes-print" aria-label="Printable notes" data-print-title={`${currentNotesProject.name} Notes`}>
-                <h1>{currentNotesProject.name} Notes</h1>
-                {visibleNotesRecords
-                  .filter((record) => String(recordNotesDrafts[record.id] || "").trim())
-                  .map((record) => (
-                    <div className="notes-print-entry" key={record.id}>
-                      <div className="notes-print-name">{record.name || "Unnamed record"}</div>
-                      <div className="notes-print-text">{recordNotesDrafts[record.id]}</div>
-                    </div>
-                  ))}
+              <section className="notes-print" aria-label="Printable notes">
+                <table className="notes-print-table">
+                  <thead>
+                    <tr>
+                      <th>
+                        <div className="notes-print-header">
+                          <span>{currentNotesProject.name} Notes</span>
+                          <span className="notes-print-page-number" />
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        {visibleNotesRecords
+                          .filter((record) => String(recordNotesDrafts[record.id] || "").trim())
+                          .map((record) => (
+                            <div className="notes-print-entry" key={record.id}>
+                              <div className="notes-print-name">{record.name || "Unnamed record"}</div>
+                              <div className="notes-print-text">{recordNotesDrafts[record.id]}</div>
+                            </div>
+                          ))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </section>
               </>
             ) : (
