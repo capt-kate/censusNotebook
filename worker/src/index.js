@@ -10,6 +10,7 @@ const PRODUCT_TYPES = {
   extraProject: "extra_project_slot",
   coffee: "coffee",
 };
+const MAX_BACKUP_BYTES = 4_500_000;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -101,6 +102,38 @@ async function findLicenseByEmail(db, email) {
 
 async function findLicenseByKey(db, licenseKey) {
   return db.prepare("SELECT * FROM licenses WHERE license_key = ? LIMIT 1").bind(licenseKey).first();
+}
+
+async function ensureCloudBackupTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS cloud_backups (
+        license_id TEXT PRIMARY KEY,
+        data_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (license_id) REFERENCES licenses(id)
+      )`
+    )
+    .run();
+}
+
+async function getProLicenseFromRequest(request, env) {
+  const url = new URL(request.url);
+  let licenseKey = String(url.searchParams.get("licenseKey") || "").trim();
+
+  if (!licenseKey && request.method !== "GET") {
+    const body = await request.clone().json().catch(() => ({}));
+    licenseKey = String(body.licenseKey || "").trim();
+  }
+
+  if (!licenseKey) return { error: "Provide a license key.", status: 400 };
+
+  const license = await findLicenseByKey(env.DB, licenseKey);
+  if (!license) return { error: "License not found.", status: 404 };
+  if (license.plan !== "pro") return { error: "Cloud backup requires Pro.", status: 403 };
+
+  return { license };
 }
 
 async function createLicense(db, email, stripeCustomerId = "") {
@@ -284,6 +317,56 @@ async function handleLicenseStatus(request, env) {
   return jsonResponse(publicLicensePayload(license));
 }
 
+async function handleGetCloudBackup(request, env) {
+  const auth = await getProLicenseFromRequest(request, env);
+  if (auth.error) return errorResponse(auth.error, auth.status);
+
+  await ensureCloudBackupTable(env.DB);
+  const backup = await env.DB
+    .prepare("SELECT data_json, updated_at FROM cloud_backups WHERE license_id = ? LIMIT 1")
+    .bind(auth.license.id)
+    .first();
+
+  if (!backup) return jsonResponse({ found: false });
+
+  return jsonResponse({
+    found: true,
+    updatedAt: backup.updated_at,
+    data: JSON.parse(backup.data_json),
+  });
+}
+
+async function handleSaveCloudBackup(request, env) {
+  const body = await request.json().catch(() => ({}));
+  const licenseKey = String(body.licenseKey || "").trim();
+  const data = body.data;
+
+  if (!licenseKey) return errorResponse("Provide a license key.", 400);
+  if (!data || !Array.isArray(data.projects)) return errorResponse("Backup data must include projects.", 400);
+
+  const dataJson = JSON.stringify(data);
+  if (new TextEncoder().encode(dataJson).length > MAX_BACKUP_BYTES) {
+    return errorResponse("Backup is too large for cloud storage.", 413);
+  }
+
+  const license = await findLicenseByKey(env.DB, licenseKey);
+  if (!license) return errorResponse("License not found.", 404);
+  if (license.plan !== "pro") return errorResponse("Cloud backup requires Pro.", 403);
+
+  await ensureCloudBackupTable(env.DB);
+  const now = new Date().toISOString();
+  await env.DB
+    .prepare(
+      `INSERT INTO cloud_backups (license_id, data_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(license_id) DO UPDATE SET data_json = excluded.data_json, updated_at = excluded.updated_at`
+    )
+    .bind(license.id, dataJson, now, now)
+    .run();
+
+  return jsonResponse({ saved: true, updatedAt: now });
+}
+
 export default {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -299,6 +382,14 @@ export default {
 
       if (request.method === "GET" && url.pathname === "/license/status") {
         return handleLicenseStatus(request, env);
+      }
+
+      if (request.method === "GET" && url.pathname === "/cloud-backup") {
+        return handleGetCloudBackup(request, env);
+      }
+
+      if (request.method === "POST" && url.pathname === "/cloud-backup") {
+        return handleSaveCloudBackup(request, env);
       }
 
       if (request.method === "GET" && url.pathname === "/health") {

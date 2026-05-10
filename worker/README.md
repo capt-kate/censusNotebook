@@ -90,9 +90,24 @@ or:
 https://YOUR-WORKER.workers.dev/license/status?licenseKey=CN-XXXX-XXXX-XXXX
 ```
 
+Cloud backup lookup for a Pro license:
+
+```text
+https://YOUR-WORKER.workers.dev/cloud-backup?licenseKey=CN-XXXX-XXXX-XXXX
+```
+
+Cloud backup save for a Pro license:
+
+```bash
+curl -X POST https://YOUR-WORKER.workers.dev/cloud-backup \
+  -H "Content-Type: application/json" \
+  -d '{"licenseKey":"CN-XXXX-XXXX-XXXX","data":{"activeProjectId":"","projects":[]}}'
+```
+
 ## Notes
 
 - Pro purchases set `plan` to `pro`.
 - Extra project purchases increment `extra_project_slots`.
 - Buy Me a Coffee records the purchase but does not change the license.
+- Pro cloud backup stores one latest project-data backup per license.
 - The Worker verifies Stripe signatures using the raw request body.

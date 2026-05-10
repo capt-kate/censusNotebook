@@ -1880,6 +1880,7 @@ export default function App() {
   const [license, setLicense] = useState(loadLicense);
   const [licenseLookup, setLicenseLookup] = useState(() => loadLicense().email || loadLicense().licenseKey || "");
   const [licenseLookupMessage, setLicenseLookupMessage] = useState("");
+  const [cloudBackupMessage, setCloudBackupMessage] = useState("");
   const [showProjectPaywall, setShowProjectPaywall] = useState(false);
   const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
@@ -2922,6 +2923,82 @@ export default function App() {
   function exportJson() {
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
     downloadFile(`census-notebook-backup-${timestamp}.json`, JSON.stringify(data, null, 2));
+  }
+
+  function requireProCloudBackup() {
+    if (isProLicense && license.licenseKey) return true;
+
+    setShowProjectPaywall(true);
+    setCloudBackupMessage(
+      isProLicense
+        ? "Restore your Pro license key before using cloud backup."
+        : "Cloud backup is available in Pro."
+    );
+    return false;
+  }
+
+  async function saveCloudBackup() {
+    if (!requireProCloudBackup()) return;
+
+    setCloudBackupMessage("Saving cloud backup...");
+    try {
+      const response = await fetch(`${LICENSE_SERVER_URL}/cloud-backup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          licenseKey: license.licenseKey,
+          data,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Cloud backup failed.");
+      }
+
+      const savedDate = payload.updatedAt ? new Date(payload.updatedAt).toLocaleString() : "now";
+      setCloudBackupMessage(`Cloud backup saved ${savedDate}.`);
+    } catch (error) {
+      setCloudBackupMessage(error.message || "Cloud backup failed.");
+    }
+  }
+
+  async function restoreCloudBackup() {
+    if (!requireProCloudBackup()) return;
+
+    setCloudBackupMessage("Checking cloud backup...");
+    try {
+      const response = await fetch(`${LICENSE_SERVER_URL}/cloud-backup?licenseKey=${encodeURIComponent(license.licenseKey)}`);
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || "Could not load cloud backup.");
+      }
+      if (!payload.found) {
+        setCloudBackupMessage("No cloud backup found yet.");
+        return;
+      }
+      if (!payload.data || !Array.isArray(payload.data.projects)) {
+        throw new Error("Cloud backup data is not readable.");
+      }
+
+      const backupDate = payload.updatedAt ? new Date(payload.updatedAt).toLocaleString() : "an unknown date";
+      const confirmed = window.confirm(
+        `Restore the cloud backup from ${backupDate}? This will replace the projects currently stored on this device.`
+      );
+      if (!confirmed) {
+        setCloudBackupMessage("Cloud restore canceled.");
+        return;
+      }
+
+      const normalizedData = toData(payload.data.projects, payload.data.activeProjectId);
+      setData(normalizedData);
+      setDataStorageReady(true);
+      await writeLocalDatabaseData(normalizedData);
+      setCloudBackupMessage(`Cloud backup restored from ${backupDate}.`);
+    } catch (error) {
+      setCloudBackupMessage(error.message || "Could not restore cloud backup.");
+    }
   }
 
   function showRecordAction(message, duration = 1800) {
@@ -5621,10 +5698,9 @@ export default function App() {
               <ul>
                 <li>One-time $99 lifetime purchase.</li>
                 <li>Unlimited projects.</li>
+                <li>Unlimited updates.</li>
                 <li>Export to CSV or PDF.</li>
-                <li>Cloud sync and backup.</li>
-                <li>Auto-linking relatives across census years.</li>
-                <li>Smart match suggestions.</li>
+                <li>Cloud backup and restore for project data.</li>
               </ul>
             </section>
 
@@ -6422,6 +6498,7 @@ export default function App() {
               <ul>
                 <li>Use <strong>Export Backup</strong> regularly.</li>
                 <li>Keep backup files somewhere safe, such as an external drive or cloud folder.</li>
+                <li>Pro users can also use <strong>Back Up to Cloud</strong> and <strong>Restore Cloud Backup</strong> from the Home page.</li>
                 <li>Use <strong>Import Backup</strong> to restore data on another browser or device.</li>
               </ul>
             </section>
@@ -7422,6 +7499,49 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   Import Backup
                   <input type="file" accept=".json,application/json" onChange={importBackupFile} style={{ display: "none" }} />
                 </label>
+              </div>
+              <div style={{ marginTop: "16px", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", flexWrap: "wrap" }}>
+                  <h3 style={{ margin: 0, fontSize: "17px", color: "#374151" }}>Cloud Backup</h3>
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      borderRadius: "999px",
+                      padding: "4px 8px",
+                      background: "#dcfce7",
+                      color: "#166534",
+                      fontSize: "12px",
+                      fontWeight: "800",
+                    }}
+                  >
+                    Pro
+                  </span>
+                </div>
+                <p style={{ color: "#4b5563", fontSize: "14px" }}>
+                  Save one license-protected cloud backup of your project data, then restore it on another device after restoring Pro.
+                </p>
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "center" }}>
+                  <button
+                    type="button"
+                    onClick={saveCloudBackup}
+                    style={isProLicense ? proExportButtonStyle : lightButtonStyle}
+                  >
+                    Back Up to Cloud
+                  </button>
+                  <button
+                    type="button"
+                    onClick={restoreCloudBackup}
+                    style={isProLicense ? proExportButtonStyle : lightButtonStyle}
+                  >
+                    Restore Cloud Backup
+                  </button>
+                </div>
+                {cloudBackupMessage && (
+                  <p style={{ margin: "10px 0 0", color: "#374151", fontSize: "14px", fontWeight: "700" }}>
+                    {cloudBackupMessage}
+                  </p>
+                )}
               </div>
             </section>
 
