@@ -1918,6 +1918,7 @@ export default function App() {
   const [licenseLookupMessage, setLicenseLookupMessage] = useState("");
   const [cloudBackupMessage, setCloudBackupMessage] = useState("");
   const [aiInterpretation, setAiInterpretation] = useState({
+    projectId: "",
     recordId: "",
     title: "",
     content: "",
@@ -3168,6 +3169,7 @@ export default function App() {
 
     const title = `${record.name || "Unnamed record"}${record.year ? `, ${record.year}` : ""}`;
     setAiInterpretation({
+      projectId: record.projectId || "",
       recordId: record.id,
       title,
       content: "",
@@ -3198,6 +3200,7 @@ export default function App() {
       }
 
       setAiInterpretation({
+        projectId: record.projectId || "",
         recordId: record.id,
         title,
         content: payload.interpretation || "",
@@ -3206,6 +3209,7 @@ export default function App() {
       });
     } catch (error) {
       setAiInterpretation({
+        projectId: record.projectId || "",
         recordId: record.id,
         title,
         content: "",
@@ -3213,6 +3217,26 @@ export default function App() {
         loading: false,
       });
     }
+  }
+
+  async function copyAiInterpretationToNotes() {
+    if (!aiInterpretation.projectId || !aiInterpretation.recordId || !aiInterpretation.content) return;
+
+    const project = data.projects.find((project) => project.id === aiInterpretation.projectId);
+    const record = project?.records.find((record) => record.id === aiInterpretation.recordId);
+    if (!project || !record) {
+      setAiInterpretation((prev) => ({ ...prev, status: "Could not find this record to update notes." }));
+      return;
+    }
+
+    const existingNotes = String(record.researchNotes || "").trim();
+    const noteToAdd = `AI Interpretation - ${new Date().toLocaleDateString()}\n${aiInterpretation.content.trim()}`;
+    const nextNotes = existingNotes ? `${existingNotes}\n\n${noteToAdd}` : noteToAdd;
+
+    await updateRecord(project.id, record.id, { researchNotes: nextNotes });
+    setRecordNotesDrafts((prev) => ({ ...prev, [record.id]: nextNotes }));
+    setAiInterpretation((prev) => ({ ...prev, status: "AI interpretation copied to Notes." }));
+    showRecordAction("AI interpretation copied to Notes.");
   }
 
   function showRecordAction(message, duration = 1800) {
@@ -4550,13 +4574,24 @@ export default function App() {
                       </p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setAiInterpretation({ recordId: "", title: "", content: "", status: "", loading: false })}
-                    style={lightButtonStyle}
-                  >
-                    Close
-                  </button>
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    {aiInterpretation.content && (
+                      <button
+                        type="button"
+                        onClick={copyAiInterpretationToNotes}
+                        style={proExportButtonStyle}
+                      >
+                        Copy to Notes
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setAiInterpretation({ projectId: "", recordId: "", title: "", content: "", status: "", loading: false })}
+                      style={lightButtonStyle}
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
                 {aiInterpretation.status && (
                   <p style={{ margin: "10px 0 0", color: aiInterpretation.content ? "#047857" : "#4b5563", fontWeight: "700" }}>
@@ -5989,7 +6024,7 @@ export default function App() {
                 <li>Unlimited updates.</li>
                 <li>Export to CSV or PDF.</li>
                 <li>Cloud backup and restore for project data.</li>
-                <li>AI Interpret for census records.</li>
+                <li>AI Interpretation on the Project page for each individual.</li>
               </ul>
             </section>
 
