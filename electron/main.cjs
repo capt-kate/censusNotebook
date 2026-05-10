@@ -67,6 +67,11 @@ async function startBackend() {
   fs.mkdirSync(uploadDir, { recursive: true });
 
   const { command, args, cwd } = getBackendCommand();
+  if (!fs.existsSync(command)) {
+    if (!isDev) return;
+    throw new Error(`Census Notebook API was not found at ${command}.`);
+  }
+
   backendProcess = spawn(command, args, {
     cwd,
     env: {

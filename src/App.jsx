@@ -16,6 +16,8 @@ const STRIPE_PRO_CHECKOUT_URL = "https://buy.stripe.com/fZu6oB0i26Hw1wD09a5Vu00"
 const STRIPE_EXTRA_PROJECT_CHECKOUT_URL = "https://buy.stripe.com/fZu14h3ue0j83ELbRS5Vu01";
 const STRIPE_COFFEE_CHECKOUT_URL = "https://buy.stripe.com/00w9AN4yi3vka391de5Vu02";
 const LICENSE_SERVER_URL = "https://census-notebook-license.katemontressor.workers.dev";
+const PRO_DESKTOP_MAC_DOWNLOAD_URL = "https://pub-5e55ac3258b44b338c60226e70cdeb65.r2.dev/Census-Notebook-Pro-1.2.0-mac.zip";
+const PRO_DESKTOP_WINDOWS_DOWNLOAD_URL = "https://pub-5e55ac3258b44b338c60226e70cdeb65.r2.dev/Census-Notebook-Pro-1.2.0-win.exe";
 const INDEXED_DB_NAME = "census-notebook-local-data";
 const INDEXED_DB_STORE = "app-state";
 const INDEXED_DB_DATA_KEY = "projects";
@@ -6069,12 +6071,47 @@ export default function App() {
               <ul>
                 <li>One-time $99 lifetime purchase.</li>
                 <li>Unlimited projects.</li>
-                <li>Unlimited updates.</li>
-                <li>Export to CSV or PDF.</li>
-                <li>Cloud backup and restore for project data.</li>
-                <li>AI Interpretation on the Project page for each individual.</li>
-              </ul>
-            </section>
+	                <li>Unlimited updates.</li>
+	                <li>Export to CSV or PDF.</li>
+	                <li>Cloud backup and restore for project data.</li>
+	                <li>AI Interpretation on the Project page for each individual.</li>
+	                <li>Download the Pro desktop app for Mac or Windows.</li>
+	              </ul>
+	              <p>
+	                The desktop download is included with Pro and is meant for users who prefer to run
+	                Census Notebook as an app on their computer.
+	              </p>
+	              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+	                {PRO_DESKTOP_MAC_DOWNLOAD_URL ? (
+	                  <a
+	                    href={PRO_DESKTOP_MAC_DOWNLOAD_URL}
+	                    target="_blank"
+	                    rel="noopener noreferrer"
+	                    style={{ ...proExportButtonStyle, display: "inline-block", textDecoration: "none" }}
+	                  >
+	                    Download Pro Desktop App for Mac
+	                  </a>
+	                ) : (
+	                  <button type="button" disabled style={disabledExportButtonStyle}>
+	                    Download Pro Desktop App for Mac - Cloudflare setup pending
+	                  </button>
+	                )}
+	                {PRO_DESKTOP_WINDOWS_DOWNLOAD_URL ? (
+	                  <a
+	                    href={PRO_DESKTOP_WINDOWS_DOWNLOAD_URL}
+	                    target="_blank"
+	                    rel="noopener noreferrer"
+	                    style={{ ...proExportButtonStyle, display: "inline-block", textDecoration: "none" }}
+	                  >
+	                    Download Pro Desktop App for Windows
+	                  </a>
+	                ) : (
+	                  <button type="button" disabled style={disabledExportButtonStyle}>
+	                    Download Pro Desktop App for Windows - Cloudflare setup pending
+	                  </button>
+	                )}
+	              </div>
+	            </section>
 
             <section style={helpSectionStyle}>
               <h3>What Happens at the Project Limit</h3>
@@ -7484,7 +7521,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
               <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #e5e7eb" }}>
                 <h3 style={{ margin: "0 0 10px", fontSize: "15px", color: "#374151" }}>Support & Upgrades</h3>
-                <div style={{ display: "grid", gap: "8px" }}>
+	                <div style={{ display: "grid", gap: "8px" }}>
                   <button
                     type="button"
                     onClick={openBuyMeCoffee}
@@ -7492,8 +7529,8 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   >
                     Buy Me a Coffee
                   </button>
-                  {!isProLicense && (
-                    <>
+	                  {!isProLicense && (
+	                    <>
                       <button
                         type="button"
                         onClick={unlockExtraProjectSlot}
@@ -7508,9 +7545,67 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                       >
                         Upgrade to Pro - $99
                       </button>
-                    </>
-                  )}
-                </div>
+	                    </>
+	                  )}
+		                  {isProLicense && (
+		                    <>
+		                      {PRO_DESKTOP_MAC_DOWNLOAD_URL ? (
+		                        <a
+		                          href={PRO_DESKTOP_MAC_DOWNLOAD_URL}
+		                          target="_blank"
+		                          rel="noopener noreferrer"
+		                          style={{
+		                            ...proExportButtonStyle,
+		                            justifySelf: "center",
+		                            maxWidth: "100%",
+		                            boxSizing: "border-box",
+		                            display: "inline-block",
+			                            textAlign: "center",
+			                            textDecoration: "none",
+			                            fontSize: "12px",
+			                            fontWeight: "400",
+			                            padding: "6px 8px",
+			                            whiteSpace: "normal",
+			                            lineHeight: 1.25,
+			                          }}
+			                        >
+			                          Download Mac Pro App
+			                        </a>
+			                      ) : (
+			                        <button type="button" disabled style={{ ...disabledExportButtonStyle, justifySelf: "center", maxWidth: "100%", fontSize: "12px", fontWeight: "400", padding: "6px 8px", whiteSpace: "normal", lineHeight: 1.25 }}>
+			                          Download Mac Pro App - Cloudflare setup pending
+			                        </button>
+			                      )}
+		                      {PRO_DESKTOP_WINDOWS_DOWNLOAD_URL ? (
+		                        <a
+		                          href={PRO_DESKTOP_WINDOWS_DOWNLOAD_URL}
+		                          target="_blank"
+		                          rel="noopener noreferrer"
+		                          style={{
+		                            ...proExportButtonStyle,
+		                            justifySelf: "center",
+		                            maxWidth: "100%",
+		                            boxSizing: "border-box",
+		                            display: "inline-block",
+			                            textAlign: "center",
+			                            textDecoration: "none",
+			                            fontSize: "12px",
+			                            fontWeight: "400",
+			                            padding: "6px 8px",
+			                            whiteSpace: "normal",
+			                            lineHeight: 1.25,
+			                          }}
+			                        >
+			                          Download Windows Pro App
+			                        </a>
+			                      ) : (
+			                        <button type="button" disabled style={{ ...disabledExportButtonStyle, justifySelf: "center", maxWidth: "100%", fontSize: "12px", fontWeight: "400", padding: "6px 8px", whiteSpace: "normal", lineHeight: 1.25 }}>
+			                          Download Windows Pro App - Cloudflare setup pending
+			                        </button>
+		                      )}
+	                    </>
+	                  )}
+	                </div>
 
                 <div
                   style={{
