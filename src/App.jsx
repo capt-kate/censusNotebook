@@ -303,8 +303,32 @@ function downloadFile(filename, text, type = "text/plain;charset=utf-8") {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.left = "-9999px";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return document.execCommand("copy");
+  } finally {
+    textarea.remove();
+  }
 }
 
 function escapeHtml(value) {
@@ -345,12 +369,6 @@ function makeRecordsCsv(records, fieldLabels, { includeProject = false } = {}) {
 }
 
 function openRecordsPdfPrint(records, fieldLabels, title, { includeProject = false } = {}) {
-  const printWindow = window.open("", "_blank", "noopener,noreferrer");
-  if (!printWindow) {
-    window.alert("Census Notebook could not open the print window. Allow popups, then try again.");
-    return false;
-  }
-
   const headers = [
     ...(includeProject ? ["Project"] : []),
     "Year",
@@ -370,7 +388,23 @@ function openRecordsPdfPrint(records, fieldLabels, title, { includeProject = fal
     record.researchNotes,
   ]);
 
-  printWindow.document.write(`<!doctype html>
+  const printFrame = document.createElement("iframe");
+  printFrame.title = title;
+  printFrame.style.position = "fixed";
+  printFrame.style.right = "0";
+  printFrame.style.bottom = "0";
+  printFrame.style.width = "0";
+  printFrame.style.height = "0";
+  printFrame.style.border = "0";
+  printFrame.onload = () => {
+    const frameWindow = printFrame.contentWindow;
+    if (!frameWindow) return;
+    frameWindow.focus();
+    frameWindow.print();
+    window.setTimeout(() => printFrame.remove(), 60000);
+  };
+
+  printFrame.srcdoc = `<!doctype html>
     <html>
       <head>
         <title>${escapeHtml(title)}</title>
@@ -429,15 +463,9 @@ function openRecordsPdfPrint(records, fieldLabels, title, { includeProject = fal
             `).join("")}
           </tbody>
         </table>
-        <script>
-          window.addEventListener("load", () => {
-            window.focus();
-            window.print();
-          });
-        </script>
       </body>
-    </html>`);
-  printWindow.document.close();
+    </html>`;
+  document.body.appendChild(printFrame);
   return true;
 }
 
@@ -2896,23 +2924,38 @@ export default function App() {
     downloadFile(`census-notebook-backup-${timestamp}.json`, JSON.stringify(data, null, 2));
   }
 
+  function showRecordAction(message, duration = 1800) {
+    setRecordActionMessage(message);
+    window.setTimeout(() => {
+      setRecordActionMessage((current) => (current === message ? "" : current));
+    }, duration);
+  }
+
   function requireProExport() {
     if (isProLicense) return true;
+    window.alert("CSV and PDF export are available in Pro. Restore your Pro license or upgrade to Pro to export records.");
     setShowProjectPaywall(true);
-    setStatusMessage("CSV and PDF export are available in Pro.");
+    showRecordAction("CSV and PDF export require Pro.");
     return false;
   }
 
-  function exportRecordsCsv(records, fieldLabels, filename, options) {
+  async function exportRecordsCsv(records, fieldLabels, filename, options) {
     if (!requireProExport()) return;
-    downloadFile(filename, makeRecordsCsv(records, fieldLabels, options), "text/csv;charset=utf-8");
-    setStatusMessage("CSV export downloaded.");
+    const csv = makeRecordsCsv(records, fieldLabels, options);
+    downloadFile(filename, `\uFEFF${csv}`, "text/csv;charset=utf-8");
+
+    try {
+      const didCopy = await copyTextToClipboard(csv);
+      showRecordAction(didCopy ? "CSV downloaded and copied. Paste into Excel." : "CSV downloaded.");
+    } catch {
+      showRecordAction("CSV downloaded. Open the file if paste is empty.", 2400);
+    }
   }
 
   function exportRecordsPdf(records, fieldLabels, title, options) {
     if (!requireProExport()) return;
     const didOpen = openRecordsPdfPrint(records, fieldLabels, title, options);
-    if (didOpen) setStatusMessage("PDF export opened. Choose Save as PDF in the print dialog.");
+    if (didOpen) showRecordAction("PDF print dialog opened. Choose Save as PDF.", 2400);
   }
 
   function importBackupFile(event) {
@@ -3037,6 +3080,23 @@ export default function App() {
     cursor: "pointer",
     fontWeight: "600",
     whiteSpace: "nowrap",
+  };
+
+  const proExportButtonStyle = {
+    ...lightButtonStyle,
+    background: "#dcfce7",
+    borderColor: "#86efac",
+    color: "#166534",
+    fontWeight: "800",
+  };
+
+  const disabledExportButtonStyle = {
+    ...proExportButtonStyle,
+    background: "#f3f4f6",
+    borderColor: "#d1d5db",
+    color: "#9ca3af",
+    cursor: "not-allowed",
+    opacity: 0.75,
   };
 
   const actionButtonStyle = {
@@ -3576,7 +3636,7 @@ export default function App() {
                       )
                     }
                     disabled={recordsByYear.length === 0}
-                    style={recordsByYear.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    style={recordsByYear.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
                     title={isProLicense ? "Export CSV" : "Pro export"}
                   >
                     Export CSV
@@ -3592,7 +3652,7 @@ export default function App() {
                       )
                     }
                     disabled={recordsByYear.length === 0}
-                    style={recordsByYear.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    style={recordsByYear.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
                     title={isProLicense ? "Export PDF" : "Pro export"}
                   >
                     Export PDF
@@ -4147,7 +4207,7 @@ export default function App() {
                       )
                     }
                     disabled={projectExportRecords.length === 0}
-                    style={projectExportRecords.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    style={projectExportRecords.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
                     title={isProLicense ? "Export CSV" : "Pro export"}
                   >
                     Export CSV
@@ -4163,7 +4223,7 @@ export default function App() {
                       )
                     }
                     disabled={projectExportRecords.length === 0}
-                    style={projectExportRecords.length === 0 ? { ...lightButtonStyle, cursor: "not-allowed", opacity: 0.55 } : lightButtonStyle}
+                    style={projectExportRecords.length === 0 ? disabledExportButtonStyle : proExportButtonStyle}
                     title={isProLicense ? "Export PDF" : "Pro export"}
                   >
                     Export PDF
