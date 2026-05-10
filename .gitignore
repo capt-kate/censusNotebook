@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+release
 *.local
 
 # Python / FastAPI
@@ -20,6 +21,11 @@ venv/
 backend/*.db
 backend/*.db-*
 backend/uploads/
+backend/build/
+backend/dist/
+.pyinstaller-cache/
+census-notebook-api.spec
+public/*.zip
 .env
 
 # Editor directories and files

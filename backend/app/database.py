@@ -7,9 +7,10 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_DATABASE_PATH = Path(os.getenv("CENSUS_NOTEBOOK_DATA_DIR", BACKEND_DIR)) / "census_notebook.db"
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    f"sqlite:///{BACKEND_DIR / 'census_notebook.db'}",
+    f"sqlite:///{DEFAULT_DATABASE_PATH}",
 )
 
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}

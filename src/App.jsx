@@ -8,11 +8,22 @@ import {
 
 const STORAGE_KEY = "census-notebook-v1";
 const CUSTOM_TEMPLATES_KEY = "census-notebook-custom-templates-v1";
+const LICENSE_STORAGE_KEY = "census-notebook-license-v1";
+const SMART_MATCH_DECISIONS_KEY = "census-notebook-smart-match-decisions-v1";
+const FREE_PROJECT_LIMIT = 3;
+const DESKTOP_APP_DOWNLOAD_FILENAME = "Census Notebook-1.2.0-mac.zip";
+const STRIPE_PRO_CHECKOUT_URL = "https://buy.stripe.com/fZu6oB0i26Hw1wD09a5Vu00";
+const STRIPE_EXTRA_PROJECT_CHECKOUT_URL = "https://buy.stripe.com/fZu14h3ue0j83ELbRS5Vu01";
+const STRIPE_COFFEE_CHECKOUT_URL = "https://buy.stripe.com/00w9AN4yi3vka391de5Vu02";
 const INDEXED_DB_NAME = "census-notebook-local-data";
 const INDEXED_DB_STORE = "app-state";
 const INDEXED_DB_DATA_KEY = "projects";
 const API_ENABLED = import.meta.env.VITE_ENABLE_API === "true";
 const emptyData = { activeProjectId: "", projects: [] };
+const defaultLicense = {
+  plan: "free",
+  extraProjectSlots: 0,
+};
 
 function uid(prefix = "id") {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -117,6 +128,37 @@ function loadCustomTemplates() {
   } catch {
     return [];
   }
+}
+
+function normalizeLicense(license) {
+  const plan = license?.plan === "pro" ? "pro" : "free";
+  return {
+    plan,
+    extraProjectSlots: Math.max(0, Number.parseInt(license?.extraProjectSlots, 10) || 0),
+  };
+}
+
+function loadLicense() {
+  try {
+    const raw = localStorage.getItem(LICENSE_STORAGE_KEY);
+    return raw ? normalizeLicense(JSON.parse(raw)) : defaultLicense;
+  } catch {
+    return defaultLicense;
+  }
+}
+
+function loadSmartMatchDecisions() {
+  try {
+    const raw = localStorage.getItem(SMART_MATCH_DECISIONS_KEY);
+    const decisions = raw ? JSON.parse(raw) : {};
+    return decisions && typeof decisions === "object" ? decisions : {};
+  } catch {
+    return {};
+  }
+}
+
+function getProjectLimit(license) {
+  return license.plan === "pro" ? Infinity : FREE_PROJECT_LIMIT + license.extraProjectSlots;
 }
 
 function slugifyTemplateId(value) {
@@ -527,6 +569,67 @@ function getRecordSurname(record) {
   return getRecordMeta(record).surname;
 }
 
+function parseFirstYear(value) {
+  const match = String(value || "").match(/\b(17|18|19|20)\d{2}\b/);
+  return match ? Number.parseInt(match[0], 10) : null;
+}
+
+function parseFirstNumber(value) {
+  const match = String(value || "").match(/\b\d{1,3}\b/);
+  return match ? Number.parseInt(match[0], 10) : null;
+}
+
+function getEstimatedBirthYear(record) {
+  const explicitBirth = parseFirstYear(getRecordBirthYear(record));
+  if (explicitBirth) return explicitBirth;
+
+  const censusYear = parseFirstYear(record.year);
+  const age = parseFirstNumber(getRecordMeta(record).age);
+  return censusYear && Number.isFinite(age) ? censusYear - age : null;
+}
+
+function getSmartMatchKey(leftRecordId, rightRecordId) {
+  return [leftRecordId, rightRecordId].sort().join("|");
+}
+
+function getLocationParts(value) {
+  return new Set(
+    normalizeMatchText(value)
+      .split(" ")
+      .filter((part) => part.length > 2)
+  );
+}
+
+function getSharedLocationParts(leftLocation, rightLocation) {
+  const leftParts = getLocationParts(leftLocation);
+  const rightParts = getLocationParts(rightLocation);
+  return Array.from(leftParts).filter((part) => rightParts.has(part));
+}
+
+function getHouseholdNames(record, records) {
+  const recordKey = getRecordHouseholdKey(record);
+  return records
+    .filter((candidate) => candidate.id !== record.id && getRecordHouseholdKey(candidate) === recordKey)
+    .map((candidate) => getRecordMatchProfile(candidate))
+    .filter((profile) => profile.surname || profile.givenName)
+    .map((profile) => `${profile.givenName} ${profile.surname}`.trim());
+}
+
+function getSharedHouseholdSurnames(leftRecord, rightRecord, records) {
+  const leftSurnames = new Set(
+    getHouseholdNames(leftRecord, records)
+      .map((name) => name.split(/\s+/).at(-1))
+      .filter(Boolean)
+  );
+  return Array.from(
+    new Set(
+      getHouseholdNames(rightRecord, records)
+        .map((name) => name.split(/\s+/).at(-1))
+        .filter((surname) => surname && leftSurnames.has(surname))
+    )
+  );
+}
+
 function getRecordMeta(record) {
   const cachedMeta = recordMetaCache.get(record);
   if (cachedMeta?.complete) return cachedMeta;
@@ -675,6 +778,98 @@ function getDuplicateConfidence(leftRecord, rightRecord) {
   }
 
   return "";
+}
+
+function scoreSmartMatch(leftRecord, rightRecord, records) {
+  const left = getRecordMatchProfile(leftRecord);
+  const right = getRecordMatchProfile(rightRecord);
+  const leftYear = parseFirstYear(leftRecord.year);
+  const rightYear = parseFirstYear(rightRecord.year);
+
+  if (!left.name || !right.name) return null;
+  if (!leftYear || !rightYear || leftYear === rightYear) return null;
+
+  const reasons = [];
+  let score = 0;
+  const sameSurname = left.surname && left.surname === right.surname;
+  const sameGivenName = left.givenName && left.givenName === right.givenName;
+  const sameGivenInitial =
+    left.givenName && right.givenName && left.givenName[0] === right.givenName[0];
+  const oneGivenContainsOther =
+    left.givenName &&
+    right.givenName &&
+    (left.givenName.includes(right.givenName) || right.givenName.includes(left.givenName));
+
+  if (sameSurname) {
+    score += 25;
+    reasons.push("Same surname");
+  }
+
+  if (sameGivenName) {
+    score += 25;
+    reasons.push("Given name matches");
+  } else if (oneGivenContainsOther) {
+    score += 18;
+    reasons.push("Given names are very similar");
+  } else if (sameGivenInitial) {
+    score += 10;
+    reasons.push("Given names share an initial");
+  }
+
+  if (!sameSurname && !sameGivenName) return null;
+
+  const leftBirthYear = getEstimatedBirthYear(leftRecord);
+  const rightBirthYear = getEstimatedBirthYear(rightRecord);
+  if (leftBirthYear && rightBirthYear) {
+    const birthDifference = Math.abs(leftBirthYear - rightBirthYear);
+    if (birthDifference <= 1) {
+      score += 25;
+      reasons.push(`Estimated birth years are within ${birthDifference} year`);
+    } else if (birthDifference <= 3) {
+      score += 18;
+      reasons.push(`Estimated birth years are within ${birthDifference} years`);
+    } else if (birthDifference <= 5) {
+      score += 8;
+      reasons.push(`Estimated birth years are within ${birthDifference} years`);
+    } else {
+      score -= 12;
+      reasons.push(`Estimated birth years differ by ${birthDifference} years`);
+    }
+  }
+
+  const sharedLocationParts = getSharedLocationParts(left.location, right.location);
+  if (left.location && right.location) {
+    if (left.location === right.location) {
+      score += 18;
+      reasons.push("Same location");
+    } else if (sharedLocationParts.length > 0) {
+      score += Math.min(14, sharedLocationParts.length * 6);
+      reasons.push(`Location shares ${sharedLocationParts.slice(0, 3).join(", ")}`);
+    }
+  }
+
+  const sharedHouseholdSurnames = getSharedHouseholdSurnames(leftRecord, rightRecord, records);
+  if (sharedHouseholdSurnames.length > 0) {
+    score += Math.min(16, sharedHouseholdSurnames.length * 8);
+    reasons.push(`Households share ${sharedHouseholdSurnames.slice(0, 3).join(", ")}`);
+  }
+
+  if (Math.abs(leftYear - rightYear) <= 30) {
+    score += 7;
+    reasons.push("Census years are close enough for a likely timeline");
+  }
+
+  const confidence = Math.min(99, Math.max(0, score));
+  if (confidence < 50) return null;
+
+  return {
+    id: getSmartMatchKey(leftRecord.id, rightRecord.id),
+    confidence,
+    label: confidence >= 85 ? "Very likely" : confidence >= 70 ? "Likely" : "Possible",
+    leftRecord,
+    rightRecord,
+    reasons,
+  };
 }
 
 function getRecordDwellingOrFamilyKey(record) {
@@ -1518,6 +1713,9 @@ export default function App() {
   const [selectedProjectRecordIds, setSelectedProjectRecordIds] = useState([]);
   const [newProjectName, setNewProjectName] = useState("");
   const [mergeTargetProjectId, setMergeTargetProjectId] = useState("");
+  const [license, setLicense] = useState(loadLicense);
+  const [showProjectPaywall, setShowProjectPaywall] = useState(false);
+  const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
   const [customTemplateDraft, setCustomTemplateDraft] = useState({
     name: "",
@@ -1641,7 +1839,20 @@ export default function App() {
     localStorage.setItem(CUSTOM_TEMPLATES_KEY, JSON.stringify(customTemplates));
   }, [customTemplates]);
 
+  useEffect(() => {
+    localStorage.setItem(LICENSE_STORAGE_KEY, JSON.stringify(license));
+  }, [license]);
+
+  useEffect(() => {
+    localStorage.setItem(SMART_MATCH_DECISIONS_KEY, JSON.stringify(smartMatchDecisions));
+  }, [smartMatchDecisions]);
+
   const activeProject = data.projects.find((p) => p.id === data.activeProjectId) || data.projects[0];
+  const projectLimit = getProjectLimit(license);
+  const isProLicense = license.plan === "pro";
+  const projectsUsed = data.projects.length;
+  const projectSlotsRemaining = isProLicense ? Infinity : Math.max(0, projectLimit - projectsUsed);
+  const projectLimitReached = !isProLicense && projectsUsed >= projectLimit;
   const mergeTargetProjects = data.projects.filter((project) => project.id !== activeProject?.id);
   const validMergeTargetProjectId = mergeTargetProjects.some((project) => project.id === mergeTargetProjectId)
     ? mergeTargetProjectId
@@ -1939,6 +2150,50 @@ export default function App() {
     });
   }, [data.projects, householdSearch]);
 
+  const smartMatchSuggestions = useMemo(() => {
+    if (currentPage !== "#/analysis/smart-matches") return [];
+
+    const suggestions = [];
+    const recordsBySurname = new Map();
+
+    allRecords.forEach((record) => {
+      const surname = getRecordSurname(record).toLowerCase();
+      if (!surname) return;
+      if (!recordsBySurname.has(surname)) recordsBySurname.set(surname, []);
+      recordsBySurname.get(surname).push(record);
+    });
+
+    recordsBySurname.forEach((records) => {
+      if (records.length > DUPLICATE_BUCKET_LIMIT) return;
+
+      for (let leftIndex = 0; leftIndex < records.length; leftIndex += 1) {
+        for (let rightIndex = leftIndex + 1; rightIndex < records.length; rightIndex += 1) {
+          const suggestion = scoreSmartMatch(records[leftIndex], records[rightIndex], allRecords);
+          if (suggestion) suggestions.push(suggestion);
+        }
+      }
+    });
+
+    return suggestions.sort((left, right) => {
+      const decisionComparison = String(smartMatchDecisions[left.id] || "").localeCompare(
+        String(smartMatchDecisions[right.id] || "")
+      );
+      if (decisionComparison !== 0) return decisionComparison;
+      if (right.confidence !== left.confidence) return right.confidence - left.confidence;
+      return compareRecordValues(left.leftRecord.name, right.leftRecord.name);
+    });
+  }, [allRecords, currentPage, smartMatchDecisions]);
+
+  const pendingSmartMatchSuggestions = smartMatchSuggestions.filter(
+    (suggestion) => !smartMatchDecisions[suggestion.id]
+  );
+  const acceptedSmartMatchSuggestions = smartMatchSuggestions.filter(
+    (suggestion) => smartMatchDecisions[suggestion.id] === "accepted"
+  );
+  const rejectedSmartMatchSuggestions = smartMatchSuggestions.filter(
+    (suggestion) => smartMatchDecisions[suggestion.id] === "rejected"
+  );
+
   const filteredRecords = useMemo(() => {
     return allRecords.filter((record) => {
       if (!recordMatchesTextFilter(record, query)) return false;
@@ -1985,6 +2240,12 @@ export default function App() {
     const name = newProjectName.trim();
     if (!name) return;
 
+    if (projectLimitReached) {
+      setShowProjectPaywall(true);
+      setStatusMessage("You have used your included project slots. Unlock another project or upgrade to Pro.");
+      return;
+    }
+
     if (apiConnected) {
       try {
         const project = normalizeProject(await api.createProject(name));
@@ -2013,6 +2274,42 @@ export default function App() {
     }));
 
     setNewProjectName("");
+  }
+
+  function unlockExtraProjectSlot() {
+    window.open(STRIPE_EXTRA_PROJECT_CHECKOUT_URL, "_blank", "noopener,noreferrer");
+    setStatusMessage("Stripe checkout opened for one extra project slot.");
+  }
+
+  function upgradeToPro() {
+    window.open(STRIPE_PRO_CHECKOUT_URL, "_blank", "noopener,noreferrer");
+    setStatusMessage("Stripe checkout opened for Pro lifetime.");
+  }
+
+  function openBuyMeCoffee() {
+    window.open(STRIPE_COFFEE_CHECKOUT_URL, "_blank", "noopener,noreferrer");
+    setStatusMessage("Stripe checkout opened for Buy Me a Coffee.");
+  }
+
+  function setSmartMatchDecision(matchId, decision) {
+    setSmartMatchDecisions((prev) => ({
+      ...prev,
+      [matchId]: decision,
+    }));
+    setRecordActionMessage(decision === "accepted" ? "Smart match accepted." : "Smart match rejected.");
+    window.setTimeout(() => {
+      setRecordActionMessage((current) =>
+        current === "Smart match accepted." || current === "Smart match rejected." ? "" : current
+      );
+    }, 900);
+  }
+
+  function clearSmartMatchDecision(matchId) {
+    setSmartMatchDecisions((prev) => {
+      const next = { ...prev };
+      delete next[matchId];
+      return next;
+    });
   }
 
   async function deleteActiveProject() {
@@ -2621,8 +2918,14 @@ export default function App() {
     {
       href: "#/help/projects",
       label: "Working with Projects",
-      description: "Organize records by surname, place, time period, or family branch.",
-      keywords: ["project", "projects", "merge", "merging", "delete project", "temporary project", "import project"],
+      description: "Organize records by surname, place, time period, or family branch, with Free and Pro project limits.",
+      keywords: ["project", "projects", "merge", "merging", "delete project", "temporary project", "import project", "free", "pro", "project slots", "upgrade"],
+    },
+    {
+      href: "#/help/pricing",
+      label: "Pricing",
+      description: "Compare the Free version, extra lifetime project slots, and Pro lifetime access.",
+      keywords: ["pricing", "price", "free", "pro", "upgrade", "paywall", "coffee", "download", "desktop", "$20", "$99", "project slots"],
     },
     {
       href: "#/help/census-image-text",
@@ -2711,6 +3014,16 @@ export default function App() {
     </div>
   );
 
+  const renderDownloadAppButton = () => (
+    <a
+      href={`/${encodeURIComponent(DESKTOP_APP_DOWNLOAD_FILENAME)}`}
+      download={DESKTOP_APP_DOWNLOAD_FILENAME}
+      style={{ ...buttonStyle, display: "inline-block", textDecoration: "none" }}
+    >
+      Download the Desktop App
+    </a>
+  );
+
   const codeBlockStyle = {
     display: "block",
     background: "#f3f4f6",
@@ -2721,6 +3034,104 @@ export default function App() {
     color: "#111827",
     fontSize: "14px",
     overflowX: "auto",
+  };
+
+  const renderSmartMatchSuggestion = (suggestion, showDecision = false) => {
+    const decision = smartMatchDecisions[suggestion.id];
+    const recordSummary = (record) => (
+      <div
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "10px",
+          padding: "12px",
+          background: "#fff",
+        }}
+      >
+        <a
+          href={`#/project-data?project=${record.projectId}&record=${record.id}`}
+          style={{ color: "#1d4ed8", fontWeight: "800", textDecoration: "none", fontSize: "17px" }}
+        >
+          {record.name || "Unnamed record"}
+        </a>
+        <p style={{ color: "#4b5563", marginTop: "4px" }}>
+          {[record.year, record.location].filter(Boolean).join(" | ") || "No census context"}
+        </p>
+        <p style={{ color: "#6b7280", fontSize: "13px", marginTop: "6px" }}>
+          Birth estimate: {getEstimatedBirthYear(record) || "—"}
+          {getRecordRelationship(record) ? ` | Relationship: ${getRecordRelationship(record)}` : ""}
+        </p>
+      </div>
+    );
+
+    return (
+      <div
+        key={suggestion.id}
+        style={{
+          border: "1px solid #e5e7eb",
+          borderRadius: "12px",
+          padding: "16px",
+          background: "#f9fafb",
+          marginTop: "14px",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+          <div>
+            <strong>{suggestion.label} match</strong>
+            <span style={{ color: "#4b5563" }}> | Confidence: {suggestion.confidence}%</span>
+          </div>
+          {showDecision && (
+            <span
+              style={{
+                padding: "4px 8px",
+                borderRadius: "999px",
+                background: decision === "accepted" ? "#dcfce7" : "#fee2e2",
+                color: decision === "accepted" ? "#166534" : "#991b1b",
+                fontWeight: "800",
+                fontSize: "12px",
+                textTransform: "uppercase",
+              }}
+            >
+              {decision}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "12px" }}>
+          {recordSummary(suggestion.leftRecord)}
+          {recordSummary(suggestion.rightRecord)}
+        </div>
+
+        <div style={{ marginTop: "12px" }}>
+          <strong>Reasons</strong>
+          <ul style={{ margin: "6px 0 0" }}>
+            {suggestion.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
+          {decision ? (
+            <button type="button" onClick={() => clearSmartMatchDecision(suggestion.id)} style={lightButtonStyle}>
+              Move Back to Suggestions
+            </button>
+          ) : (
+            <>
+              <button type="button" onClick={() => setSmartMatchDecision(suggestion.id, "accepted")} style={buttonStyle}>
+                Accept Match
+              </button>
+              <button
+                type="button"
+                onClick={() => setSmartMatchDecision(suggestion.id, "rejected")}
+                style={{ ...lightButtonStyle, color: "#dc2626" }}
+              >
+                Not a Match
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (currentPage === "#/templates/create") {
@@ -3889,6 +4300,14 @@ export default function App() {
                 <p style={{ margin: "14px 0 0", color: "#6b7280" }}>No help topics match your search.</p>
               )}
             </section>
+
+            <section style={{ ...cardStyle, padding: "24px", textAlign: "center" }}>
+              <h2 style={sectionTitleStyle}>Desktop App</h2>
+              <p style={{ color: "#4b5563", marginBottom: "14px" }}>
+                Download Census Notebook for Mac when you want to run it as a local desktop app.
+              </p>
+              {renderDownloadAppButton()}
+            </section>
           </main>
           <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
@@ -4415,6 +4834,77 @@ export default function App() {
     );
   }
 
+  if (currentPage === "#/analysis/smart-matches") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Analysis
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Smart Matches</h1>
+            <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
+              Back to Home
+            </a>
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Find possible links across census years</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Smart Matches compares records with similar names, birth estimates, locations, and
+              household clues. Review each suggestion before accepting it.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Summary</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(120px, 1fr))", gap: "10px" }}>
+                <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", background: "#fff" }}>
+                  <strong style={{ fontSize: "24px" }}>{pendingSmartMatchSuggestions.length}</strong>
+                  <p style={{ color: "#4b5563" }}>Suggestions</p>
+                </div>
+                <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", background: "#fff" }}>
+                  <strong style={{ fontSize: "24px" }}>{acceptedSmartMatchSuggestions.length}</strong>
+                  <p style={{ color: "#4b5563" }}>Accepted</p>
+                </div>
+                <div style={{ border: "1px solid #e5e7eb", borderRadius: "10px", padding: "12px", background: "#fff" }}>
+                  <strong style={{ fontSize: "24px" }}>{rejectedSmartMatchSuggestions.length}</strong>
+                  <p style={{ color: "#4b5563" }}>Rejected</p>
+                </div>
+              </div>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Suggestions</h3>
+              {pendingSmartMatchSuggestions.length > 0 ? (
+                pendingSmartMatchSuggestions.map((suggestion) => renderSmartMatchSuggestion(suggestion))
+              ) : (
+                <p style={{ color: "#4b5563" }}>
+                  No pending smart match suggestions found. Add records from multiple census years,
+                  including names, ages or birth years, and locations to improve suggestions.
+                </p>
+              )}
+            </section>
+
+            {acceptedSmartMatchSuggestions.length > 0 && (
+              <section style={helpSectionStyle}>
+                <h3>Accepted Matches</h3>
+                {acceptedSmartMatchSuggestions.map((suggestion) => renderSmartMatchSuggestion(suggestion, true))}
+              </section>
+            )}
+
+            {rejectedSmartMatchSuggestions.length > 0 && (
+              <section style={helpSectionStyle}>
+                <h3>Rejected Matches</h3>
+                {rejectedSmartMatchSuggestions.map((suggestion) => renderSmartMatchSuggestion(suggestion, true))}
+              </section>
+            )}
+          </article>
+          <CopyrightFooter actionMessage={recordActionMessage} />
+        </div>
+      </div>
+    );
+  }
+
   if (currentPage === "#/analysis/duplicates") {
     const confidenceStyles = {
       Exact: { background: "#dcfce7", color: "#166534" },
@@ -4571,9 +5061,11 @@ export default function App() {
             <section style={helpSectionStyle}>
               <h3>Ways to use it</h3>
               <p>
-                Currently, Census Notebook runs in a web browser. No installation is required.
+                Census Notebook can run in a modern web browser or as a downloadable desktop app.
+                The desktop version packages the app with its local data service so you do not need
+                to start a separate server.
               </p>
-              <p>It should work in modern versions of:</p>
+              <p>The browser version should work in modern versions of:</p>
               <ul>
                 <li>Google Chrome</li>
                 <li>Microsoft Edge</li>
@@ -4583,6 +5075,17 @@ export default function App() {
               <p>
                 For features that copy files into a local Sources folder, Chrome or Edge may provide
                 the best support because they include stronger local folder permissions.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Free and Pro Versions</h3>
+              <p>
+                The Free version includes 3 projects. You can unlock extra lifetime project slots for
+                $20 each, or upgrade to Pro for a one-time $99 lifetime purchase with unlimited projects.
+              </p>
+              <p>
+                See the <a href="#/help/pricing">Pricing</a> topic for details.
               </p>
             </section>
 
@@ -4670,6 +5173,10 @@ export default function App() {
                 Projects keep related research together. You might create a project for a surname,
                 family branch, location, or research question.
               </p>
+              <p>
+                The Free version includes 3 projects. If you need more, you can unlock extra project
+                slots or upgrade to Pro.
+              </p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -4701,8 +5208,92 @@ export default function App() {
               <h3>3. Analyze the Data</h3>
               <p>
                 Once records are saved, use the analysis pages to follow a person through time, review
-                household members, compare nearby households, and check for possible duplicate records.
+                household members, compare nearby households, review Smart Match suggestions across
+                census years, and check for possible duplicate records.
               </p>
+            </section>
+          </article>
+          <CopyrightFooter actionMessage={recordActionMessage} />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/pricing") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Pricing</h1>
+            {renderHelpTopicControls()}
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Choose the version that fits your research</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Census Notebook starts with a Free version so you can try real research projects before
+              deciding whether you need more room.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>Free Version</h3>
+              <ul>
+                <li>Includes up to 3 projects.</li>
+                <li>Includes the core census templates, record tools, notes, favorites, highlights, and search.</li>
+                <li>Includes a Buy Me a Coffee button if you want to support the project.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Unlock Extra Projects</h3>
+              <p>
+                If you want to stay on the Free version but need more room, you can unlock extra
+                project slots one at a time.
+              </p>
+              <ul>
+                <li>Each extra project slot is a one-time $20 purchase.</li>
+                <li>Each unlocked project slot is lifetime access.</li>
+                <li>Unlocked slots add to the 3 projects included with the Free version.</li>
+              </ul>
+              <p>
+                For example, if you unlock two extra project slots, you can keep 5 total projects.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Pro Version</h3>
+              <ul>
+                <li>One-time $99 lifetime purchase.</li>
+                <li>Unlimited projects.</li>
+                <li>Export to CSV or PDF.</li>
+                <li>Cloud sync and backup.</li>
+                <li>Auto-linking relatives across census years.</li>
+                <li>Smart match suggestions.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>What Happens at the Project Limit</h3>
+              <p>
+                When the Free version reaches its available project slots, Census Notebook will keep
+                your existing projects available. To add another project, unlock one more project slot
+                or upgrade to Pro.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>No Refunds</h3>
+              <p>
+                Payments are final. Because purchases unlock lifetime access to digital features,
+                Census Notebook does not offer refunds.
+              </p>
+            </section>
+
+            <section style={{ ...helpSectionNoDividerStyle, textAlign: "center", paddingTop: "18px" }}>
+              {renderDownloadAppButton()}
             </section>
           </article>
           <CopyrightFooter actionMessage={recordActionMessage} />
@@ -4732,17 +5323,30 @@ export default function App() {
             </p>
 
             <section style={helpSectionStyle}>
-              <h3>Create as Many Projects as You Need</h3>
+              <h3>Project Limits and Upgrades</h3>
               <p>
-                You can create unlimited projects to match the way you think about your data. For
-                example, you might:
+                The Free version includes up to 3 projects. If you need more room, you can unlock
+                extra lifetime project slots one at a time, or upgrade to Pro for unlimited projects.
+              </p>
+              <ul>
+                <li><strong>Free:</strong> 3 projects included.</li>
+                <li><strong>Extra project slot:</strong> one-time $20 lifetime unlock for one more project.</li>
+                <li><strong>Pro:</strong> one-time $99 lifetime purchase for unlimited projects.</li>
+              </ul>
+              <p>
+                However many project slots you have, use them to match the way you think about your data.
+                For example, you might:
               </p>
               <ul>
                 <li>Create a project for each surname, such as <strong>Dame</strong> or <strong>Dickinson</strong>.</li>
                 <li>Organize by location, such as <strong>Vermont</strong> or <strong>Massachusetts</strong>.</li>
                 <li>Separate research by time period or family branch.</li>
               </ul>
-              <p>There is no limit. Use whatever structure makes your research easier to manage.</p>
+              <p>
+                When you reach your available project slots, Census Notebook keeps your existing
+                projects available and asks you to unlock another slot or upgrade before creating
+                a new project.
+              </p>
             </section>
 
             <section style={helpSectionStyle}>
@@ -5443,8 +6047,10 @@ export default function App() {
             <section style={helpSectionStyle}>
               <h3>Local Storage Is Device-Specific</h3>
               <ul>
-                <li>Your project data is stored on the device and browser you are using.</li>
-                <li>Using a different browser or computer will not automatically show the same data.</li>
+                <li>Your project data is stored on the device you are using.</li>
+                <li>In the browser version, data is tied to that browser and browser profile.</li>
+                <li>In the desktop version, data is stored in the app&apos;s local data folder.</li>
+                <li>Using a different browser, app install, or computer will not automatically show the same data.</li>
                 <li>Clearing browser data can remove your Census Notebook data.</li>
               </ul>
             </section>
@@ -5461,9 +6067,10 @@ export default function App() {
             <section style={helpSectionStyle}>
               <h3>Ways You Could Lose Data</h3>
               <p>
-                Census Notebook stores your project data in your browser on the device you are using.
-                This keeps your research private, but it also means you are responsible for protecting
-                your data.
+                Census Notebook stores your project data locally on the device you are using. In a
+                browser, that means browser storage. In the desktop app, that means the app&apos;s local
+                data folder. This keeps your research private, but it also means you are responsible
+                for protecting your data.
               </p>
               <p>You could lose data if you:</p>
               <ul>
@@ -5502,7 +6109,8 @@ export default function App() {
             <section style={helpSectionStyle}>
               <h3>Analysis Depends on Entered Fields</h3>
               <ul>
-                <li>Person Timeline, Neighbors, and Household depend on consistent names and fields.</li>
+                <li>Person Timeline, Neighbors, Household, and Smart Matches depend on consistent names and fields.</li>
+                <li>Smart Matches works best when records include census year, name, location, age or birth year, and household clues.</li>
                 <li>Neighbors works best when rows are imported in census page order.</li>
                 <li>Dwelling and family number analysis depends on those fields being present.</li>
                 <li>OCR or AI transcription will contain errors that require manual review.</li>
@@ -5853,7 +6461,45 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
         <main style={mainStyle}>
           <aside style={sidebarStyle}>
             <section id="projects" style={cardStyle}>
-              <h2 style={sectionTitleStyle}>Projects</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: "10px", marginBottom: "14px" }}>
+                <h2 style={{ ...sectionTitleStyle, marginBottom: 0 }}>Projects</h2>
+                <span
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "999px",
+                    background: isProLicense ? "#dcfce7" : "#eef2ff",
+                    color: isProLicense ? "#166534" : "#3730a3",
+                    fontSize: "12px",
+                    fontWeight: "800",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {isProLicense ? "Pro" : "Free"}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  marginBottom: "14px",
+                  padding: "12px",
+                  borderRadius: "12px",
+                  border: "1px solid #e5e7eb",
+                  background: "#fff",
+                  textAlign: "left",
+                  fontSize: "13px",
+                  color: "#374151",
+                  lineHeight: 1.4,
+                }}
+              >
+                <strong>{isProLicense ? "Unlimited projects" : `${projectsUsed} of ${projectLimit} project slots used`}</strong>
+                {!isProLicense && (
+                  <div style={{ marginTop: "4px" }}>
+                    {projectSlotsRemaining > 0
+                      ? `${projectSlotsRemaining} ${projectSlotsRemaining === 1 ? "slot" : "slots"} remaining.`
+                      : "Unlock one more project slot for $20, or upgrade to Pro."}
+                  </div>
+                )}
+              </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {data.projects.map((project) => (
@@ -5876,8 +6522,37 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   placeholder="New project name"
                   style={{ ...inputStyle, minWidth: 0, flex: 1 }}
                 />
-                <button onClick={createProject} style={buttonStyle}>Add</button>
+                <button
+                  onClick={createProject}
+                  style={{
+                    ...buttonStyle,
+                    opacity: projectLimitReached ? 0.85 : 1,
+                  }}
+                >
+                  Add
+                </button>
               </div>
+
+              {(projectLimitReached || showProjectPaywall) && !isProLicense && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    border: "1px solid #f59e0b",
+                    background: "#fffbeb",
+                    color: "#78350f",
+                    textAlign: "left",
+                    fontSize: "13px",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <strong>You&apos;ve used your included project slots.</strong>
+                  <p style={{ marginTop: "4px" }}>
+                    Unlock one more lifetime project slot for $20, or upgrade to Pro for unlimited projects.
+                  </p>
+                </div>
+              )}
 
               <button
                 onClick={deleteActiveProject}
@@ -5924,6 +6599,37 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   Merge Project
                 </button>
               </div>
+
+              <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px solid #e5e7eb" }}>
+                <h3 style={{ margin: "0 0 10px", fontSize: "15px", color: "#374151" }}>Support & Upgrades</h3>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={openBuyMeCoffee}
+                    style={{ ...lightButtonStyle, width: "100%" }}
+                  >
+                    Buy Me a Coffee
+                  </button>
+                  {!isProLicense && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={unlockExtraProjectSlot}
+                        style={{ ...lightButtonStyle, width: "100%", color: "#92400e" }}
+                      >
+                        Unlock One Project - $20
+                      </button>
+                      <button
+                        type="button"
+                        onClick={upgradeToPro}
+                        style={{ ...buttonStyle, width: "100%" }}
+                      >
+                        Upgrade to Pro - $99
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </section>
 
             <nav style={cardStyle}>
@@ -5957,6 +6663,12 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
                   style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
                 >
                   Household
+                </a>
+                <a
+                  href="#/analysis/smart-matches"
+                  style={{ ...buttonStyle, display: "block", textDecoration: "none", textAlign: "center" }}
+                >
+                  Smart Matches
                 </a>
                 <a
                   href="#/analysis/duplicates"

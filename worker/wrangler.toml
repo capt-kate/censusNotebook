@@ -1,0 +1,16 @@
+name = "census-notebook-license"
+main = "src/index.js"
+compatibility_date = "2026-05-09"
+
+# Replace database_name and database_id with your Cloudflare D1 values.
+[[d1_databases]]
+binding = "DB"
+database_name = "census-notebook-license"
+database_id = "6bfd2963-f3d1-43f7-8193-eac6f5e962cf"
+
+[vars]
+# Replace these with the Payment Link IDs from Stripe, not the full buy.stripe.com URLs.
+# They usually look like plink_123...
+STRIPE_PRO_PAYMENT_LINK_ID = "plink_1TVL9U8EqbzWTwvfPqzVVhf5"
+STRIPE_EXTRA_PROJECT_PAYMENT_LINK_ID = "plink_1TVLAH8EqbzWTwvf2Y1ibkzh"
+STRIPE_COFFEE_PAYMENT_LINK_ID = "plink_1TVLCb8EqbzWTwvfb9EirNum"

@@ -1,12 +1,21 @@
 {
-  "name": "my-app",
+  "name": "census-notebook",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.2.0",
+  "description": "A local-first census research notebook for genealogy.",
+  "author": "Old Dead Relatives",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "backend:build": "node scripts/build-backend.cjs",
     "lint": "eslint .",
+    "desktop:dev": "concurrently \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "desktop:build": "npm run build && npm run backend:build && electron-builder",
+    "desktop:build:mac": "npm run build && npm run backend:build && electron-builder --mac",
+    "desktop:build:win": "npm run build && npm run backend:build && electron-builder --win",
+    "desktop:build:linux": "npm run build && npm run backend:build && electron-builder --linux",
     "preview": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"
   },
@@ -20,11 +29,54 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.4",
+    "electron-builder": "^26.0.12",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "wait-on": "^9.0.3",
     "vite": "^8.0.10",
     "wrangler": "^4.88.0"
+  },
+  "build": {
+    "appId": "com.olddeadrelatives.censusnotebook",
+    "productName": "Census Notebook",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist/census-notebook-api",
+        "to": "backend/census-notebook-api",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "public",
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.reference",
+      "target": [
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office"
+    }
   }
 }

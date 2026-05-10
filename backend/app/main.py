@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from shutil import copyfileobj
 
@@ -18,7 +19,7 @@ from .schemas import (
     SourceImageRead,
 )
 
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = Path(os.getenv("CENSUS_NOTEBOOK_UPLOAD_DIR", "uploads"))
 
 app = FastAPI(title="Census Notebook API")
 
@@ -29,6 +30,8 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5174",
         "http://localhost:5174",
+        "file://",
+        "null",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -45,7 +48,7 @@ def startup() -> None:
         if "research_notes" not in record_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE records ADD COLUMN research_notes TEXT NOT NULL DEFAULT ''"))
-    UPLOAD_DIR.mkdir(exist_ok=True)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @app.get("/health")
