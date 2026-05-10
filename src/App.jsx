@@ -10,6 +10,7 @@ const STORAGE_KEY = "census-notebook-v1";
 const CUSTOM_TEMPLATES_KEY = "census-notebook-custom-templates-v1";
 const LICENSE_STORAGE_KEY = "census-notebook-license-v1";
 const SMART_MATCH_DECISIONS_KEY = "census-notebook-smart-match-decisions-v1";
+const SAME_PERSON_LINKS_KEY = "census-notebook-same-person-links-v1";
 const FREE_PROJECT_LIMIT = 3;
 const DESKTOP_APP_DOWNLOAD_FILENAME = "Census Notebook-1.2.0-mac.zip";
 const STRIPE_PRO_CHECKOUT_URL = "https://buy.stripe.com/fZu6oB0i26Hw1wD09a5Vu00";
@@ -161,6 +162,38 @@ function loadSmartMatchDecisions() {
     return decisions && typeof decisions === "object" ? decisions : {};
   } catch {
     return {};
+  }
+}
+
+function normalizeSamePersonLinks(links) {
+  if (!Array.isArray(links)) return [];
+
+  const seen = new Set();
+  return links
+    .map((link) => {
+      const recordIds = Array.isArray(link?.recordIds) ? link.recordIds : [link?.leftRecordId, link?.rightRecordId];
+      const [leftRecordId, rightRecordId] = recordIds.map((id) => String(id || "").trim()).filter(Boolean);
+      if (!leftRecordId || !rightRecordId || leftRecordId === rightRecordId) return null;
+
+      const key = getSamePersonPairKey(leftRecordId, rightRecordId);
+      if (seen.has(key)) return null;
+      seen.add(key);
+
+      return {
+        id: key,
+        recordIds: key.split("|"),
+        createdAt: String(link?.createdAt || new Date().toISOString()),
+      };
+    })
+    .filter(Boolean);
+}
+
+function loadSamePersonLinks() {
+  try {
+    const raw = localStorage.getItem(SAME_PERSON_LINKS_KEY);
+    return normalizeSamePersonLinks(raw ? JSON.parse(raw) : []);
+  } catch {
+    return [];
   }
 }
 
@@ -754,6 +787,10 @@ function getEstimatedBirthYear(record) {
 
 function getSmartMatchKey(leftRecordId, rightRecordId) {
   return [leftRecordId, rightRecordId].sort().join("|");
+}
+
+function getSamePersonPairKey(leftRecordId, rightRecordId) {
+  return getSmartMatchKey(leftRecordId, rightRecordId);
 }
 
 function getLocationParts(value) {
@@ -1883,6 +1920,8 @@ export default function App() {
   const [cloudBackupMessage, setCloudBackupMessage] = useState("");
   const [showProjectPaywall, setShowProjectPaywall] = useState(false);
   const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
+  const [samePersonLinks, setSamePersonLinks] = useState(loadSamePersonLinks);
+  const [smartMatchTab, setSmartMatchTab] = useState("pending");
   const [customTemplates, setCustomTemplates] = useState(loadCustomTemplates);
   const [customTemplateDraft, setCustomTemplateDraft] = useState({
     name: "",
@@ -2013,6 +2052,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SMART_MATCH_DECISIONS_KEY, JSON.stringify(smartMatchDecisions));
   }, [smartMatchDecisions]);
+
+  useEffect(() => {
+    localStorage.setItem(SAME_PERSON_LINKS_KEY, JSON.stringify(samePersonLinks));
+  }, [samePersonLinks]);
 
   const activeProject = data.projects.find((p) => p.id === data.activeProjectId) || data.projects[0];
   const projectLimit = getProjectLimit(license);
@@ -2174,6 +2217,51 @@ export default function App() {
     return Array.from(new Set(allRecords.map((r) => r.year).filter(Boolean))).sort();
   }, [allRecords]);
 
+  const samePersonRecordGroups = useMemo(() => {
+    const recordIds = new Set(allRecords.map((record) => record.id));
+    const parent = new Map(allRecords.map((record) => [record.id, record.id]));
+
+    function find(recordId) {
+      const parentId = parent.get(recordId);
+      if (!parentId || parentId === recordId) return recordId;
+      const root = find(parentId);
+      parent.set(recordId, root);
+      return root;
+    }
+
+    function union(leftRecordId, rightRecordId) {
+      if (!recordIds.has(leftRecordId) || !recordIds.has(rightRecordId)) return;
+      const leftRoot = find(leftRecordId);
+      const rightRoot = find(rightRecordId);
+      if (leftRoot !== rightRoot) parent.set(rightRoot, leftRoot);
+    }
+
+    samePersonLinks.forEach((link) => {
+      const [leftRecordId, rightRecordId] = link.recordIds || [];
+      if (leftRecordId && rightRecordId) union(leftRecordId, rightRecordId);
+    });
+
+    Object.entries(smartMatchDecisions).forEach(([matchId, decision]) => {
+      if (decision !== "accepted") return;
+      const [leftRecordId, rightRecordId] = matchId.split("|");
+      if (leftRecordId && rightRecordId) union(leftRecordId, rightRecordId);
+    });
+
+    const groupsByRoot = new Map();
+    allRecords.forEach((record) => {
+      const root = find(record.id);
+      if (!groupsByRoot.has(root)) groupsByRoot.set(root, []);
+      groupsByRoot.get(root).push(record);
+    });
+
+    const groupsByRecordId = new Map();
+    groupsByRoot.forEach((records) => {
+      records.forEach((record) => groupsByRecordId.set(record.id, records));
+    });
+
+    return groupsByRecordId;
+  }, [allRecords, samePersonLinks, smartMatchDecisions]);
+
   const personTimelineResults = useMemo(() => {
     const firstName = timelineSearch.firstName.trim().toLowerCase();
     const lastName = timelineSearch.lastName.trim().toLowerCase();
@@ -2182,8 +2270,7 @@ export default function App() {
 
     if (!firstName && !lastName && !birth && !location) return [];
 
-    return allRecords
-      .filter((record) => {
+    const directMatches = allRecords.filter((record) => {
         const name = String(record.name || "").toLowerCase();
         const recordLocation = String(record.location || "").toLowerCase();
         const notes = String(record.notes || "").toLowerCase();
@@ -2194,9 +2281,17 @@ export default function App() {
         if (location && !recordLocation.includes(location) && !notes.includes(location)) return false;
 
         return true;
-      })
+      });
+    const resultById = new Map(directMatches.map((record) => [record.id, record]));
+
+    directMatches.forEach((record) => {
+      const linkedRecords = samePersonRecordGroups.get(record.id) || [];
+      linkedRecords.forEach((linkedRecord) => resultById.set(linkedRecord.id, linkedRecord));
+    });
+
+    return Array.from(resultById.values())
       .sort((a, b) => String(a.year || "").localeCompare(String(b.year || "")));
-  }, [allRecords, timelineSearch]);
+  }, [allRecords, samePersonRecordGroups, timelineSearch]);
 
   const neighborResults = useMemo(() => {
     const firstName = neighborsSearch.firstName.trim().toLowerCase();
@@ -2323,8 +2418,6 @@ export default function App() {
   }, [data.projects, householdSearch]);
 
   const smartMatchSuggestions = useMemo(() => {
-    if (currentPage !== "#/analysis/smart-matches") return [];
-
     const suggestions = [];
     const recordsBySurname = new Map();
 
@@ -2354,7 +2447,7 @@ export default function App() {
       if (right.confidence !== left.confidence) return right.confidence - left.confidence;
       return compareRecordValues(left.leftRecord.name, right.leftRecord.name);
     });
-  }, [allRecords, currentPage, smartMatchDecisions]);
+  }, [allRecords, smartMatchDecisions]);
 
   const pendingSmartMatchSuggestions = smartMatchSuggestions.filter(
     (suggestion) => !smartMatchDecisions[suggestion.id]
@@ -2365,6 +2458,11 @@ export default function App() {
   const rejectedSmartMatchSuggestions = smartMatchSuggestions.filter(
     (suggestion) => smartMatchDecisions[suggestion.id] === "rejected"
   );
+  const smartMatchTabSuggestions = smartMatchTab === "accepted"
+    ? acceptedSmartMatchSuggestions
+    : smartMatchTab === "rejected"
+      ? rejectedSmartMatchSuggestions
+      : pendingSmartMatchSuggestions;
 
   const filteredRecords = useMemo(() => {
     return allRecords.filter((record) => {
@@ -2505,11 +2603,39 @@ export default function App() {
     }
   }
 
-  function setSmartMatchDecision(matchId, decision) {
+  function addSamePersonLink(leftRecordId, rightRecordId) {
+    const key = getSamePersonPairKey(leftRecordId, rightRecordId);
+    setSamePersonLinks((prev) => {
+      if (prev.some((link) => link.id === key)) return prev;
+      return [
+        ...prev,
+        {
+          id: key,
+          recordIds: key.split("|"),
+          createdAt: new Date().toISOString(),
+        },
+      ];
+    });
+  }
+
+  function removeSamePersonLink(leftRecordId, rightRecordId) {
+    const key = getSamePersonPairKey(leftRecordId, rightRecordId);
+    setSamePersonLinks((prev) => prev.filter((link) => link.id !== key));
+  }
+
+  function setSmartMatchDecision(suggestion, decision) {
+    const matchId = suggestion.id;
     setSmartMatchDecisions((prev) => ({
       ...prev,
       [matchId]: decision,
     }));
+
+    if (decision === "accepted") {
+      addSamePersonLink(suggestion.leftRecord.id, suggestion.rightRecord.id);
+    } else {
+      removeSamePersonLink(suggestion.leftRecord.id, suggestion.rightRecord.id);
+    }
+
     setRecordActionMessage(decision === "accepted" ? "Smart match accepted." : "Smart match rejected.");
     window.setTimeout(() => {
       setRecordActionMessage((current) =>
@@ -2518,12 +2644,13 @@ export default function App() {
     }, 900);
   }
 
-  function clearSmartMatchDecision(matchId) {
+  function clearSmartMatchDecision(suggestion) {
     setSmartMatchDecisions((prev) => {
       const next = { ...prev };
-      delete next[matchId];
+      delete next[suggestion.id];
       return next;
     });
+    removeSamePersonLink(suggestion.leftRecord.id, suggestion.rightRecord.id);
   }
 
   async function deleteActiveProject() {
@@ -3305,6 +3432,12 @@ export default function App() {
       keywords: ["full page", "neighbors", "household", "direct family", "scope"],
     },
     {
+      href: "#/help/smart-matches",
+      label: "Smart Matches",
+      description: "Review possible same-person links across census years and use accepted matches in Person Timeline.",
+      keywords: ["smart matches", "match", "matches", "accepted", "rejected", "pending", "same person", "person timeline", "link records"],
+    },
+    {
       href: "#/help/cleaning-data",
       label: "Tips for Cleaning Up Data Before Import",
       description: "Prepare OCR or spreadsheet data so imports, searches, and analysis work better.",
@@ -3453,17 +3586,17 @@ export default function App() {
 
         <div style={{ display: "flex", gap: "8px", marginTop: "12px", flexWrap: "wrap" }}>
           {decision ? (
-            <button type="button" onClick={() => clearSmartMatchDecision(suggestion.id)} style={lightButtonStyle}>
+            <button type="button" onClick={() => clearSmartMatchDecision(suggestion)} style={lightButtonStyle}>
               Move Back to Suggestions
             </button>
           ) : (
             <>
-              <button type="button" onClick={() => setSmartMatchDecision(suggestion.id, "accepted")} style={buttonStyle}>
+              <button type="button" onClick={() => setSmartMatchDecision(suggestion, "accepted")} style={buttonStyle}>
                 Accept Match
               </button>
               <button
                 type="button"
-                onClick={() => setSmartMatchDecision(suggestion.id, "rejected")}
+                onClick={() => setSmartMatchDecision(suggestion, "rejected")}
                 style={{ ...lightButtonStyle, color: "#dc2626" }}
               >
                 Not a Match
@@ -5265,6 +5398,17 @@ export default function App() {
   }
 
   if (currentPage === "#/analysis/smart-matches") {
+    const smartMatchTabs = [
+      { id: "pending", label: "Pending", count: pendingSmartMatchSuggestions.length },
+      { id: "accepted", label: "Accepted", count: acceptedSmartMatchSuggestions.length },
+      { id: "rejected", label: "Rejected", count: rejectedSmartMatchSuggestions.length },
+    ];
+    const smartMatchEmptyMessages = {
+      pending: "No pending smart match suggestions found. Add records from multiple census years, including names, ages or birth years, and locations to improve suggestions.",
+      accepted: "No accepted matches yet. Accept a suggestion to create a same-person link.",
+      rejected: "No rejected matches yet.",
+    };
+
     return (
       <div style={pageStyle}>
         <div style={shellStyle}>
@@ -5304,30 +5448,37 @@ export default function App() {
             </section>
 
             <section style={helpSectionStyle}>
-              <h3>Suggestions</h3>
-              {pendingSmartMatchSuggestions.length > 0 ? (
-                pendingSmartMatchSuggestions.map((suggestion) => renderSmartMatchSuggestion(suggestion))
+              <h3>Matches</h3>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+                {smartMatchTabs.map((tab) => {
+                  const isActive = smartMatchTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSmartMatchTab(tab.id)}
+                      style={{
+                        ...lightButtonStyle,
+                        background: isActive ? "#dcfce7" : "#f9fafb",
+                        borderColor: isActive ? "#86efac" : "#d1d5db",
+                        color: isActive ? "#166534" : "#111827",
+                        fontWeight: "800",
+                      }}
+                    >
+                      {tab.label} ({tab.count})
+                    </button>
+                  );
+                })}
+              </div>
+
+              {smartMatchTabSuggestions.length > 0 ? (
+                smartMatchTabSuggestions.map((suggestion) =>
+                  renderSmartMatchSuggestion(suggestion, smartMatchTab !== "pending")
+                )
               ) : (
-                <p style={{ color: "#4b5563" }}>
-                  No pending smart match suggestions found. Add records from multiple census years,
-                  including names, ages or birth years, and locations to improve suggestions.
-                </p>
+                <p style={{ color: "#4b5563" }}>{smartMatchEmptyMessages[smartMatchTab]}</p>
               )}
             </section>
-
-            {acceptedSmartMatchSuggestions.length > 0 && (
-              <section style={helpSectionStyle}>
-                <h3>Accepted Matches</h3>
-                {acceptedSmartMatchSuggestions.map((suggestion) => renderSmartMatchSuggestion(suggestion, true))}
-              </section>
-            )}
-
-            {rejectedSmartMatchSuggestions.length > 0 && (
-              <section style={helpSectionStyle}>
-                <h3>Rejected Matches</h3>
-                {rejectedSmartMatchSuggestions.map((suggestion) => renderSmartMatchSuggestion(suggestion, true))}
-              </section>
-            )}
           </article>
           <CopyrightFooter actionMessage={recordActionMessage} />
         </div>
@@ -6249,6 +6400,85 @@ export default function App() {
                 <li>Use search to connect everything.</li>
               </ul>
               <p>Census Notebook is designed to support both styles, so you can work the way genealogists actually research.</p>
+            </section>
+          </article>
+          <CopyrightFooter actionMessage={recordActionMessage} />
+        </div>
+      </div>
+    );
+  }
+
+  if (currentPage === "#/help/smart-matches") {
+    return (
+      <div style={pageStyle}>
+        <div style={shellStyle}>
+          <header style={headerStyle}>
+            <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
+              Help topic
+            </p>
+            <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>Smart Matches</h1>
+            {renderHelpTopicControls()}
+          </header>
+
+          <article style={helpArticleStyle}>
+            <h2 style={helpHeadingStyle}>Use suggestions to connect one person across census years</h2>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginTop: 0 }}>
+              Smart Matches compares census records and suggests pairs that may describe the same person.
+              You stay in control: Census Notebook suggests possible links, but you decide whether to accept them.
+            </p>
+
+            <section style={helpSectionStyle}>
+              <h3>What Smart Matches Compares</h3>
+              <ul>
+                <li>Names and similar spellings.</li>
+                <li>Census years that make sense together.</li>
+                <li>Estimated birth years or ages when available.</li>
+                <li>Locations and household clues.</li>
+                <li>Nearby or shared household surnames when enough data is present.</li>
+              </ul>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Review Tabs</h3>
+              <ul>
+                <li><strong>Pending:</strong> suggestions you have not reviewed yet.</li>
+                <li><strong>Accepted:</strong> matches you agreed are likely the same person.</li>
+                <li><strong>Rejected:</strong> suggestions you marked as not a match.</li>
+              </ul>
+              <p>
+                Accepted and rejected matches stay visible in their tabs so you can review your decisions later.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Accepting a Match</h3>
+              <p>
+                When you click <strong>Accept Match</strong>, Census Notebook saves a same-person link
+                between those two records. The records are not merged and no original census data is changed.
+              </p>
+              <p>
+                Accepted same-person links help <strong>Person Timeline</strong>. If one linked record
+                matches your timeline search, the other linked records can appear with it, even when
+                spelling, location, or year details differ.
+              </p>
+            </section>
+
+            <section style={helpSectionStyle}>
+              <h3>Changing Your Mind</h3>
+              <p>
+                Use <strong>Move Back to Suggestions</strong> on an accepted or rejected match if you
+                want to review it again. Moving an accepted match back removes the same-person link.
+              </p>
+            </section>
+
+            <section style={helpSectionNoDividerStyle}>
+              <h3>Tips for Better Matches</h3>
+              <ul>
+                <li>Include census year, name, location, age, birth year, and relationship when possible.</li>
+                <li>Import enough household context to make family clues useful.</li>
+                <li>Review suggestions carefully before accepting them.</li>
+                <li>Use accepted matches as research clues, not as proof by themselves.</li>
+              </ul>
             </section>
           </article>
           <CopyrightFooter actionMessage={recordActionMessage} />
