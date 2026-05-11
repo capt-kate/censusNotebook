@@ -3473,6 +3473,11 @@ export default function App() {
     margin: "0 auto",
   };
 
+  const wideShellStyle = {
+    ...shellStyle,
+    maxWidth: "none",
+  };
+
   const headerStyle = {
     background: "rgba(255, 252, 246, 0.94)",
     padding: "32px",
@@ -3488,6 +3493,13 @@ export default function App() {
     gridTemplateColumns: "300px minmax(0, 1fr)",
     gap: "24px",
     alignItems: "start",
+  };
+
+  const wideDataMainStyle = {
+    width: "100%",
+    maxWidth: "none",
+    margin: 0,
+    textAlign: "left",
   };
 
   const sidebarStyle = {
@@ -4021,7 +4033,7 @@ export default function App() {
 
     return (
       <div style={pageStyle}>
-        <div style={shellStyle}>
+        <div style={wideShellStyle}>
           <header style={headerStyle}>
             <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Records by year
@@ -4037,7 +4049,7 @@ export default function App() {
             </div>
           </header>
 
-          <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
+          <main style={wideDataMainStyle}>
             <section style={cardStyle}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
                 <div>
@@ -4592,7 +4604,7 @@ export default function App() {
 
     return (
       <div style={pageStyle}>
-        <div style={shellStyle}>
+        <div style={wideShellStyle}>
           <header style={headerStyle}>
             <p style={{ margin: 0, color: "#6b7280", fontWeight: "700", textTransform: "uppercase" }}>
               Project data
@@ -4608,7 +4620,7 @@ export default function App() {
             </div>
           </header>
 
-          <main style={{ maxWidth: "1180px", margin: "0 auto", textAlign: "left" }}>
+          <main style={wideDataMainStyle}>
             <section style={cardStyle}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", alignItems: "center", flexWrap: "wrap" }}>
                 <div>
@@ -7497,7 +7509,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
 
   return (
     <div style={pageStyle}>
-      <div style={shellStyle}>
+      <div style={wideShellStyle}>
         <header style={headerStyle}>
           <h1 style={{ fontSize: "56px", margin: "10px 0 20px" }}>Census Notebook</h1>
           <div style={{ maxWidth: "900px", margin: "0 auto", color: "#4b5563", fontSize: "20px", lineHeight: 1.5 }}>
@@ -7859,7 +7871,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
             </section>
           </aside>
 
-          <section>
+          <section style={{ minWidth: 0 }}>
             <section id="add-record" style={cardStyle}>
               <h2 style={sectionTitleStyle}>Add Record to {activeProject?.name || "a project"}</h2>
 
