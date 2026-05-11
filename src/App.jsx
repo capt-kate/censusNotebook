@@ -2003,6 +2003,7 @@ export default function App() {
   const [cloudBackupMessage, setCloudBackupMessage] = useState("");
   const [aiInterpretation, setAiInterpretation] = useState(emptyAiInterpretationState);
   const [showProjectPaywall, setShowProjectPaywall] = useState(false);
+  const [showMacDownloadNote, setShowMacDownloadNote] = useState(false);
   const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
   const [samePersonLinks, setSamePersonLinks] = useState(loadSamePersonLinks);
   const [smartMatchTab, setSmartMatchTab] = useState("pending");
@@ -6278,6 +6279,70 @@ export default function App() {
 	                  </button>
 	                )}
 	              </div>
+	              <button
+	                type="button"
+	                onClick={() => setShowMacDownloadNote(true)}
+	                style={{ ...lightButtonStyle, marginTop: "12px" }}
+	              >
+	                Note for Opening the Mac App
+	              </button>
+	              {showMacDownloadNote && (
+	                <div
+	                  role="dialog"
+	                  aria-modal="true"
+	                  aria-labelledby="mac-download-note-title"
+	                  style={{
+	                    position: "fixed",
+	                    inset: 0,
+	                    zIndex: 50,
+	                    display: "flex",
+	                    alignItems: "center",
+	                    justifyContent: "center",
+	                    padding: "24px",
+	                    background: "rgba(17, 24, 39, 0.42)",
+	                  }}
+	                >
+	                  <div
+	                    style={{
+	                      width: "min(620px, 100%)",
+	                      maxHeight: "min(720px, 90vh)",
+	                      overflow: "auto",
+	                      background: "#fffaf2",
+	                      border: "1px solid rgba(120, 113, 108, 0.24)",
+	                      borderRadius: "14px",
+	                      boxShadow: "0 24px 70px rgba(17, 24, 39, 0.24)",
+	                      padding: "24px",
+	                      color: "#111827",
+	                    }}
+	                  >
+	                    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "start" }}>
+	                      <h3 id="mac-download-note-title" style={{ margin: 0 }}>Running a Downloaded App on a Mac</h3>
+	                      <button
+	                        type="button"
+	                        onClick={() => setShowMacDownloadNote(false)}
+	                        aria-label="Close Mac app note"
+	                        style={actionButtonStyle}
+	                      >
+	                        X
+	                      </button>
+	                    </div>
+	                    <p style={{ marginTop: "14px", color: "#4b5563" }}>
+	                      If macOS blocks a downloaded app from opening, you can allow it manually:
+	                    </p>
+	                    <ol style={{ lineHeight: 1.6, color: "#374151" }}>
+	                      <li>Open <strong>System Settings</strong> or <strong>System Preferences</strong> on older Macs.</li>
+	                      <li>Go to <strong>Privacy &amp; Security</strong>.</li>
+	                      <li>Scroll down to the <strong>Security</strong> section near the bottom.</li>
+	                      <li>You should see a message saying the app was blocked.</li>
+	                      <li>Click <strong>Open Anyway</strong> or <strong>Allow</strong>.</li>
+	                      <li>Try opening the app again. You may need to click <strong>Open</strong> one more time to confirm.</li>
+	                    </ol>
+	                    <p style={{ marginBottom: 0, color: "#4b5563", fontWeight: "700" }}>
+	                      This only needs to be done once for each app.
+	                    </p>
+	                  </div>
+	                </div>
+	              )}
 	            </section>
 
             <section style={helpSectionStyle}>
