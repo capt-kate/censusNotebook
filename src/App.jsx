@@ -221,6 +221,23 @@ function slugifyTemplateId(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function extractYearFromText(value) {
+  const match = String(value || "").match(/\b(1[6-9]\d{2}|20\d{2})\b/);
+  return match ? match[1] : "";
+}
+
+function getTemplateYearValue(template) {
+  return (
+    String(template?.year || "").trim() ||
+    extractYearFromText(template?.label) ||
+    extractYearFromText(template?.id)
+  );
+}
+
+function getTemplateYearLabel(template) {
+  return getTemplateYearValue(template) || String(template?.label || "").trim();
+}
+
 function columnKeyFromLabel(label, existingKeys = new Set()) {
   const baseKey = slugifyTemplateId(label).replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase()) || "column";
   let key = baseKey;
@@ -584,8 +601,23 @@ function isTemplateRowEmpty(row) {
   return Object.values(row).every((value) => !String(value || "").trim());
 }
 
+function getTemplateRowValue(row, template, labels) {
+  const normalizedLabels = new Set(labels.map(normalizeFieldLabel));
+  const matchingColumn = template.columns.find((column) =>
+    normalizedLabels.has(normalizeFieldLabel(column.label)) || normalizedLabels.has(normalizeFieldLabel(column.key))
+  );
+
+  return matchingColumn ? row[matchingColumn.key] : "";
+}
+
 function templateRowToRecord(template, row) {
   const fullName = [row.givenName, row.surname].filter(Boolean).join(" ").trim();
+  const rowYear = getTemplateRowValue(row, template, ["Year", "Census Year"]);
+  const recordYear =
+    getTemplateYearValue(template) ||
+    extractYearFromText(rowYear) ||
+    String(rowYear || "").trim() ||
+    (template.custom ? getTemplateYearLabel(template) : "");
   const householdParts = [
     row.relationship && `Relationship: ${row.relationship}`,
     row.familyNumber && `Family: ${row.familyNumber}`,
@@ -595,7 +627,10 @@ function templateRowToRecord(template, row) {
   ].filter(Boolean);
 
   const noteFields = template.columns
-    .filter((column) => !["location", "page", "lineNumber", "houseNumber", "familyNumber", "surname", "givenName", "relationship"].includes(column.key))
+    .filter((column) => {
+      if (["year", "location", "page", "lineNumber", "houseNumber", "familyNumber", "surname", "givenName", "relationship"].includes(column.key)) return false;
+      return !["year", "census year"].includes(normalizeFieldLabel(column.label));
+    })
     .map((column) => {
       const value = String(row[column.key] || "").trim();
       return value ? `${column.label}: ${value}` : "";
@@ -603,7 +638,7 @@ function templateRowToRecord(template, row) {
     .filter(Boolean);
 
   return {
-    year: template.year,
+    year: recordYear,
     name: fullName || String(row.surname || row.givenName || "").trim(),
     location: String(row.location || "").trim(),
     household: householdParts.join("; "),
@@ -1529,7 +1564,7 @@ function CensusTemplatePage({
               </button>
               <a
                 href="#/records-by-year"
-                onClick={() => onViewRecordsByYear(template.year)}
+                onClick={() => onViewRecordsByYear(getTemplateYearLabel(template))}
                 style={{ ...compactLightButtonStyle, display: "inline-block", textDecoration: "none" }}
               >
                 View Census Records by Year
@@ -2153,7 +2188,7 @@ export default function App() {
 
     const customLinks = customTemplates.map((template) => ({
       id: template.id,
-      label: template.year || template.label,
+      label: getTemplateYearLabel(template),
       isCustom: true,
     }));
 
@@ -2264,8 +2299,13 @@ export default function App() {
   }, [allRecords, currentPage]);
 
   const years = useMemo(() => {
-    return Array.from(new Set(allRecords.map((r) => r.year).filter(Boolean))).sort();
-  }, [allRecords]);
+    return Array.from(
+      new Set([
+        ...allRecords.map((record) => String(record.year || "").trim()).filter(Boolean),
+        ...customTemplates.map((template) => getTemplateYearLabel(template)).filter(Boolean),
+      ])
+    ).sort();
+  }, [allRecords, customTemplates]);
 
   const samePersonRecordGroups = useMemo(() => {
     const recordIds = new Set(allRecords.map((record) => record.id));
@@ -3031,7 +3071,7 @@ export default function App() {
 
   function saveCustomTemplate() {
     const name = customTemplateDraft.name.trim();
-    const year = customTemplateDraft.year.trim();
+    const year = customTemplateDraft.year.trim() || extractYearFromText(customTemplateDraft.name);
     const labels = parseColumnLabels(customTemplateDraft.columnsText);
 
     if (!name || labels.length === 0) {
@@ -3959,7 +3999,7 @@ export default function App() {
         {recordsByYearSort.field === field ? ` ${recordsByYearSort.direction === "asc" ? "↑" : "↓"}` : ""}
       </button>
     );
-    const selectedYearTemplate = allTemplates.find((template) => String(template.year || template.label || "") === String(selectedRecordsByYear || ""));
+    const selectedYearTemplate = allTemplates.find((template) => String(getTemplateYearLabel(template)) === String(selectedRecordsByYear || ""));
     const yearTemplateFieldLabels = selectedYearTemplate
       ? selectedYearTemplate.columns
           .filter((column) => !["location", "surname", "givenName"].includes(column.key))
