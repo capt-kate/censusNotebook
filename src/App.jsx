@@ -1,3 +1,14 @@
+/*******************************************************************************
+ * Copyright (c) 2026 Montressor Enterprises, Inc.
+ *
+ * This software is the confidential and proprietary information of
+ * Montressor Enterprises ("Proprietary Information"). You shall not disclose
+ * such Proprietary Information and shall use it only in accordance
+ * with the terms of the license agreement you entered into with
+ * Montressor Enterprises.
+ *
+ * All Rights Reserved.
+ ******************************************************************************/
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as api from "./api";
 import {
