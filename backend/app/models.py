@@ -37,6 +37,8 @@ class Record(Base):
     household: Mapped[str] = mapped_column(String(240), default="", nullable=False)
     notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
     research_notes: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    ai_interpretation: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    ai_interpreted_at: Mapped[str] = mapped_column(String(40), default="", nullable=False)
     bookmarked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     highlighted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

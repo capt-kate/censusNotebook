@@ -51,6 +51,8 @@ After a Pro or extra-project purchase, the Worker will send a separate license e
 
 AI Interpret is a Pro-only feature. The app sends one selected census record to the Worker, the Worker verifies the Pro license, then the Worker calls OpenAI. Your OpenAI API key stays in Cloudflare and is never exposed in the app.
 
+The Worker includes 50 AI Interpret requests per Pro license per month by default. Override that limit with the `AI_INTERPRET_MONTHLY_LIMIT` environment variable if needed. The app saves each returned interpretation with the record, and users must intentionally regenerate a saved interpretation before another AI request is used.
+
 Add your OpenAI API key as a Worker secret:
 
 ```bash

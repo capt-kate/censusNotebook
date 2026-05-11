@@ -48,6 +48,12 @@ def startup() -> None:
         if "research_notes" not in record_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE records ADD COLUMN research_notes TEXT NOT NULL DEFAULT ''"))
+        if "ai_interpretation" not in record_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE records ADD COLUMN ai_interpretation TEXT NOT NULL DEFAULT ''"))
+        if "ai_interpreted_at" not in record_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE records ADD COLUMN ai_interpreted_at TEXT NOT NULL DEFAULT ''"))
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 

@@ -309,6 +309,8 @@ function normalizeProject(project) {
       household: record.household || "",
       notes: record.notes || "",
       researchNotes: record.researchNotes || record.research_notes || "",
+      aiInterpretation: record.aiInterpretation || record.ai_interpretation || "",
+      aiInterpretedAt: record.aiInterpretedAt || record.ai_interpreted_at || "",
       bookmarked: Boolean(record.bookmarked),
       highlighted: Boolean(record.highlighted),
     })),
@@ -316,19 +318,53 @@ function normalizeProject(project) {
 }
 
 function recordToApiPayload(record) {
-  const { researchNotes, ...rest } = record;
+  const { researchNotes, aiInterpretation, aiInterpretedAt, ...rest } = record;
   return {
     ...rest,
     research_notes: researchNotes || "",
+    ai_interpretation: aiInterpretation || "",
+    ai_interpreted_at: aiInterpretedAt || "",
   };
 }
 
 function recordChangesToApiPayload(changes) {
-  if (!Object.prototype.hasOwnProperty.call(changes, "researchNotes")) return changes;
-  const { researchNotes, ...rest } = changes;
+  const { researchNotes, aiInterpretation, aiInterpretedAt, ...rest } = changes;
+  const payload = { ...rest };
+
+  if (Object.prototype.hasOwnProperty.call(changes, "researchNotes")) {
+    payload.research_notes = researchNotes || "";
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, "aiInterpretation")) {
+    payload.ai_interpretation = aiInterpretation || "";
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, "aiInterpretedAt")) {
+    payload.ai_interpreted_at = aiInterpretedAt || "";
+  }
+
+  return payload;
+}
+
+function getAiUsageStatus(payload) {
+  const remaining = Number.parseInt(payload?.usageRemaining, 10);
+  const limit = Number.parseInt(payload?.usageLimit, 10);
+
+  if (!Number.isFinite(remaining) || !Number.isFinite(limit) || limit <= 0) return "";
+
+  return `${Math.max(0, remaining)} of ${limit} AI Interpret requests left this month.`;
+}
+
+function emptyAiInterpretationState() {
   return {
-    ...rest,
-    research_notes: researchNotes || "",
+    projectId: "",
+    recordId: "",
+    projectName: "",
+    title: "",
+    content: "",
+    status: "",
+    loading: false,
+    source: "",
   };
 }
 
@@ -1930,14 +1966,7 @@ export default function App() {
   const [licenseLookup, setLicenseLookup] = useState(() => loadLicense().email || loadLicense().licenseKey || "");
   const [licenseLookupMessage, setLicenseLookupMessage] = useState("");
   const [cloudBackupMessage, setCloudBackupMessage] = useState("");
-  const [aiInterpretation, setAiInterpretation] = useState({
-    projectId: "",
-    recordId: "",
-    title: "",
-    content: "",
-    status: "",
-    loading: false,
-  });
+  const [aiInterpretation, setAiInterpretation] = useState(emptyAiInterpretationState);
   const [showProjectPaywall, setShowProjectPaywall] = useState(false);
   const [smartMatchDecisions, setSmartMatchDecisions] = useState(loadSmartMatchDecisions);
   const [samePersonLinks, setSamePersonLinks] = useState(loadSamePersonLinks);
@@ -3177,18 +3206,44 @@ export default function App() {
     return false;
   }
 
-  async function interpretRecordWithAi(record, projectId = "", projectName = "") {
+  async function interpretRecordWithAi(record, projectId = "", projectName = "", options = {}) {
     if (!requireProAi()) return;
 
     const title = `${record.name || "Unnamed record"}${record.year ? `, ${record.year}` : ""}`;
     const resolvedProjectId = projectId || record.projectId || "";
+
+    if (record.aiInterpretation && !options.regenerate) {
+      setAiInterpretation({
+        projectId: resolvedProjectId,
+        recordId: record.id,
+        projectName,
+        title,
+        content: record.aiInterpretation,
+        status: record.aiInterpretedAt
+          ? `Saved AI interpretation from ${new Date(record.aiInterpretedAt).toLocaleDateString()}.`
+          : "Saved AI interpretation.",
+        loading: false,
+        source: "saved",
+      });
+      return;
+    }
+
+    if (record.aiInterpretation && options.regenerate) {
+      const confirmed = window.confirm(
+        "This record already has a saved AI interpretation. Regenerate it? This will use one AI Interpret request."
+      );
+      if (!confirmed) return;
+    }
+
     setAiInterpretation({
       projectId: resolvedProjectId,
       recordId: record.id,
+      projectName,
       title,
       content: "",
       status: "Interpreting record...",
       loading: true,
+      source: "fresh",
     });
 
     try {
@@ -3213,24 +3268,47 @@ export default function App() {
         throw new Error(payload.error || "AI interpretation failed.");
       }
 
+      const interpretedAt = new Date().toISOString();
+      const interpretation = payload.interpretation || "";
+      await updateRecord(resolvedProjectId, record.id, {
+        aiInterpretation: interpretation,
+        aiInterpretedAt: interpretedAt,
+      });
+
+      const usageStatus = getAiUsageStatus(payload);
       setAiInterpretation({
         projectId: resolvedProjectId,
         recordId: record.id,
+        projectName,
         title,
-        content: payload.interpretation || "",
-        status: "AI interpretation ready.",
+        content: interpretation,
+        status: usageStatus ? `AI interpretation ready. ${usageStatus}` : "AI interpretation ready.",
         loading: false,
+        source: "fresh",
       });
     } catch (error) {
       setAiInterpretation({
         projectId: resolvedProjectId,
         recordId: record.id,
+        projectName,
         title,
         content: "",
         status: error.message || "AI interpretation failed.",
         loading: false,
+        source: "",
       });
     }
+  }
+
+  function regenerateAiInterpretation() {
+    const project = data.projects.find((project) => project.id === aiInterpretation.projectId);
+    const record = project?.records.find((record) => record.id === aiInterpretation.recordId);
+    if (!project || !record) {
+      setAiInterpretation((prev) => ({ ...prev, status: "Could not find this record to regenerate the AI interpretation." }));
+      return;
+    }
+
+    interpretRecordWithAi(record, project.id, project.name, { regenerate: true });
   }
 
   async function copyAiInterpretationToNotes() {
@@ -4627,9 +4705,18 @@ export default function App() {
 	                            : "Copy to Notes"}
 	                      </button>
 	                    )}
+                    {aiInterpretation.content && aiInterpretation.source === "saved" && (
+                      <button
+                        type="button"
+                        onClick={regenerateAiInterpretation}
+                        style={lightButtonStyle}
+                      >
+                        Regenerate
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => setAiInterpretation({ projectId: "", recordId: "", title: "", content: "", status: "", loading: false })}
+                      onClick={() => setAiInterpretation(emptyAiInterpretationState())}
                       style={lightButtonStyle}
                     >
                       Close
@@ -4835,10 +4922,14 @@ export default function App() {
                                       type="button"
                                       onClick={() => interpretRecordWithAi(record, project.id, project.name)}
                                       aria-label="AI interpret record"
-                                      title={isProLicense ? "AI Interpret" : "AI Interpret requires Pro"}
+                                      title={isProLicense ? (record.aiInterpretation ? "Show saved AI interpretation" : "AI Interpret") : "AI Interpret requires Pro"}
                                       style={{
                                         ...actionButtonStyle,
-                                        background: aiInterpretation.loading && aiInterpretation.recordId === record.id ? "#bbf7d0" : "#dcfce7",
+                                        background: aiInterpretation.loading && aiInterpretation.recordId === record.id
+                                          ? "#bbf7d0"
+                                          : record.aiInterpretation
+                                            ? "#bbf7d0"
+                                            : "#dcfce7",
                                         borderColor: "#86efac",
                                         color: "#166534",
                                         fontWeight: "800",
@@ -5932,7 +6023,8 @@ export default function App() {
                 <li>
                   Use <strong>AI Interpret</strong> from the Project Records page when you want a concise
                   Pro-only reading of one census record, including research clues, possible follow-up,
-                  and cautions about uncertainty.
+                  and cautions about uncertainty. Saved interpretations are reused when you click AI
+                  again, and regenerating one uses another monthly AI request.
                 </li>
               </ul>
               <p>The record action buttons use simple symbols:</p>
@@ -6085,7 +6177,7 @@ export default function App() {
 	                <li>Unlimited updates.</li>
 	                <li>Export to CSV or PDF.</li>
 	                <li>Cloud backup and restore for project data.</li>
-	                <li>AI Interpretation on the Project page for each individual.</li>
+	                <li>AI Interpretation on the Project page for each individual, with 50 requests included each month.</li>
 	                <li>Download the Pro desktop app for Mac or Windows.</li>
 	              </ul>
 	              <p>

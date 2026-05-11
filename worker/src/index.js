@@ -12,6 +12,7 @@ const PRODUCT_TYPES = {
 };
 const MAX_BACKUP_BYTES = 4_500_000;
 const MAX_AI_RECORD_BYTES = 12_000;
+const DEFAULT_AI_INTERPRET_MONTHLY_LIMIT = 50;
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -116,6 +117,86 @@ async function ensureCloudBackupTable(db) {
         FOREIGN KEY (license_id) REFERENCES licenses(id)
       )`
     )
+    .run();
+}
+
+async function ensureAiUsageTable(db) {
+  await db
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS ai_usage_monthly (
+        license_id TEXT NOT NULL,
+        usage_month TEXT NOT NULL,
+        request_count INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (license_id, usage_month),
+        FOREIGN KEY (license_id) REFERENCES licenses(id)
+      )`
+    )
+    .run();
+}
+
+function getAiUsageLimit(env) {
+  const limit = Number.parseInt(env.AI_INTERPRET_MONTHLY_LIMIT || "", 10);
+  return Number.isFinite(limit) && limit > 0 ? limit : DEFAULT_AI_INTERPRET_MONTHLY_LIMIT;
+}
+
+function getAiUsageMonth(date = new Date()) {
+  return date.toISOString().slice(0, 7);
+}
+
+async function reserveAiUsage(db, licenseId, limit) {
+  await ensureAiUsageTable(db);
+
+  const now = new Date().toISOString();
+  const usageMonth = getAiUsageMonth();
+  const usage = await db
+    .prepare("SELECT request_count FROM ai_usage_monthly WHERE license_id = ? AND usage_month = ? LIMIT 1")
+    .bind(licenseId, usageMonth)
+    .first();
+  const currentCount = Number.parseInt(usage?.request_count, 10) || 0;
+
+  if (currentCount >= limit) {
+    return {
+      allowed: false,
+      usageMonth,
+      usageUsed: currentCount,
+      usageRemaining: 0,
+      usageLimit: limit,
+    };
+  }
+
+  const nextCount = currentCount + 1;
+  await db
+    .prepare(
+      `INSERT INTO ai_usage_monthly (license_id, usage_month, request_count, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(license_id, usage_month)
+       DO UPDATE SET request_count = excluded.request_count, updated_at = excluded.updated_at`
+    )
+    .bind(licenseId, usageMonth, nextCount, now, now)
+    .run();
+
+  return {
+    allowed: true,
+    usageMonth,
+    usageUsed: nextCount,
+    usageRemaining: Math.max(0, limit - nextCount),
+    usageLimit: limit,
+  };
+}
+
+async function refundAiUsage(db, licenseId, usageMonth) {
+  if (!licenseId || !usageMonth) return;
+
+  await db
+    .prepare(
+      `UPDATE ai_usage_monthly
+       SET request_count = CASE WHEN request_count > 0 THEN request_count - 1 ELSE 0 END,
+           updated_at = ?
+       WHERE license_id = ? AND usage_month = ?`
+    )
+    .bind(new Date().toISOString(), licenseId, usageMonth)
     .run();
 }
 
@@ -406,34 +487,55 @@ async function handleAiInterpretRecord(request, env) {
     return errorResponse("Record is too large to interpret.", 413);
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: env.OPENAI_MODEL || "gpt-5.2",
-      instructions: [
-        "You are helping a genealogist interpret one census record.",
-        "Use only the record details provided. Do not invent facts.",
-        "Be concise, practical, and cautious. Call out uncertainty.",
-        "Return plain text with these headings: Summary, Clues, Possible Follow-Up, Cautions.",
-      ].join(" "),
-      input: `Interpret this Census Notebook record for genealogy research:\n${recordJson}`,
-      max_output_tokens: 900,
-    }),
-  });
+  const usage = await reserveAiUsage(env.DB, license.id, getAiUsageLimit(env));
+  if (!usage.allowed) {
+    return jsonResponse({
+      error: `Monthly AI Interpret limit reached. You have used ${usage.usageUsed} of ${usage.usageLimit} requests for ${usage.usageMonth}.`,
+      usageMonth: usage.usageMonth,
+      usageUsed: usage.usageUsed,
+      usageRemaining: usage.usageRemaining,
+      usageLimit: usage.usageLimit,
+    }, 429);
+  }
+
+  let response;
+  try {
+    response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: env.OPENAI_MODEL || "gpt-5.2",
+        instructions: [
+          "You are helping a genealogist interpret one census record.",
+          "Use only the record details provided. Do not invent facts.",
+          "Be concise, practical, and cautious. Call out uncertainty.",
+          "Return plain text with these headings: Summary, Clues, Possible Follow-Up, Cautions.",
+        ].join(" "),
+        input: `Interpret this Census Notebook record for genealogy research:\n${recordJson}`,
+        max_output_tokens: 900,
+      }),
+    });
+  } catch (error) {
+    await refundAiUsage(env.DB, license.id, usage.usageMonth);
+    return errorResponse(error.message || "AI interpretation failed.", 502);
+  }
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
+    await refundAiUsage(env.DB, license.id, usage.usageMonth);
     return errorResponse(payload.error?.message || "AI interpretation failed.", response.status);
   }
 
   const interpretation = getOpenAiOutputText(payload);
-  if (!interpretation) return errorResponse("AI did not return an interpretation.", 502);
+  if (!interpretation) {
+    await refundAiUsage(env.DB, license.id, usage.usageMonth);
+    return errorResponse("AI did not return an interpretation.", 502);
+  }
 
-  return jsonResponse({ interpretation });
+  return jsonResponse({ interpretation, ...usage });
 }
 
 export default {

@@ -10,6 +10,8 @@ class RecordBase(BaseModel):
     household: str = ""
     notes: str = ""
     research_notes: str = ""
+    ai_interpretation: str = ""
+    ai_interpreted_at: str = ""
     bookmarked: bool = False
     highlighted: bool = False
 
@@ -25,6 +27,8 @@ class RecordUpdate(BaseModel):
     household: str | None = None
     notes: str | None = None
     research_notes: str | None = None
+    ai_interpretation: str | None = None
+    ai_interpreted_at: str | None = None
     bookmarked: bool | None = None
     highlighted: bool | None = None
 
