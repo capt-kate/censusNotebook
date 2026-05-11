@@ -27,8 +27,8 @@ const STRIPE_PRO_CHECKOUT_URL = "https://buy.stripe.com/fZu6oB0i26Hw1wD09a5Vu00"
 const STRIPE_EXTRA_PROJECT_CHECKOUT_URL = "https://buy.stripe.com/fZu14h3ue0j83ELbRS5Vu01";
 const STRIPE_COFFEE_CHECKOUT_URL = "https://buy.stripe.com/00w9AN4yi3vka391de5Vu02";
 const LICENSE_SERVER_URL = "https://census-notebook-license.katemontressor.workers.dev";
-const PRO_DESKTOP_MAC_DOWNLOAD_URL = "https://pub-5e55ac3258b44b338c60226e70cdeb65.r2.dev/Census-Notebook-Pro-1.2.0-mac.zip";
-const PRO_DESKTOP_WINDOWS_DOWNLOAD_URL = "https://pub-5e55ac3258b44b338c60226e70cdeb65.r2.dev/Census-Notebook-Pro-1.2.0-win.exe";
+const PRO_DESKTOP_MAC_DOWNLOAD_URL = "https://pub-5e55ac3258b44b338c60226e70cdeb65.r2.dev/Census-Notebook-Pro-1.5.0-mac.zip";
+const PRO_DESKTOP_WINDOWS_DOWNLOAD_URL = "https://pub-5e55ac3258b44b338c60226e70cdeb65.r2.dev/Census-Notebook-Pro-1.5.0-win.exe";
 const INDEXED_DB_NAME = "census-notebook-local-data";
 const INDEXED_DB_STORE = "app-state";
 const INDEXED_DB_DATA_KEY = "projects";
@@ -1233,7 +1233,7 @@ function CopyrightFooter({ actionMessage = "" }) {
         <a href="mailto:sales@garuda-buddha.com" style={{ color: "inherit", fontWeight: "700" }}>
           Kate Montressor
         </a>
-        . v1.5. All rights reserved. This app is free for anyone to use. Please do not steal my work.
+        . v1.6. All rights reserved. This app is free for anyone to use. Please do not steal my work.
       </footer>
     </>
   );
