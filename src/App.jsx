@@ -3450,7 +3450,8 @@ export default function App() {
 
   const pageStyle = {
     minHeight: "100vh",
-    minWidth: "fit-content",
+    width: "100%",
+    minWidth: 0,
     backgroundColor: "#f6f0e3",
     backgroundImage: `
       linear-gradient(rgba(55, 65, 81, 0.045) 1px, transparent 1px),
@@ -3485,14 +3486,21 @@ export default function App() {
     border: "1px solid rgba(120, 113, 108, 0.18)",
     boxShadow: "0 18px 45px rgba(68, 53, 35, 0.12)",
     marginBottom: "24px",
+    textAlign: "left",
+  };
+
+  const homeHeaderStyle = {
+    ...headerStyle,
     textAlign: "center",
   };
 
   const mainStyle = {
     display: "grid",
-    gridTemplateColumns: "300px minmax(0, 1fr)",
+    gridTemplateColumns: "280px minmax(0, 1fr)",
+    width: "100%",
     gap: "24px",
     alignItems: "start",
+    justifyContent: "start",
   };
 
   const wideDataMainStyle = {
@@ -3506,6 +3514,10 @@ export default function App() {
     position: "sticky",
     top: "20px",
     alignSelf: "start",
+    width: "280px",
+    minWidth: "280px",
+    maxWidth: "280px",
+    boxSizing: "border-box",
   };
 
   const cardStyle = {
@@ -4039,7 +4051,7 @@ export default function App() {
               Records by year
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Census Records by Year</h1>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-start", flexWrap: "wrap" }}>
               <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
                 Back to Home
               </a>
@@ -4610,7 +4622,7 @@ export default function App() {
               Project data
             </p>
             <h1 style={{ fontSize: "46px", margin: "10px 0 16px" }}>View Census Records by Project</h1>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-start", flexWrap: "wrap" }}>
               <a href="#/" style={{ ...buttonStyle, display: "inline-block", fontSize: "13px", padding: "8px 12px", textDecoration: "none" }}>
                 Back to Home
               </a>
@@ -5275,15 +5287,15 @@ export default function App() {
               >
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "10px" }}>
                   <input
-                    value={timelineSearch.firstName}
-                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, firstName: event.target.value }))}
-                    placeholder="First name"
-                    style={inputStyle}
-                  />
-                  <input
                     value={timelineSearch.lastName}
                     onChange={(event) => setTimelineSearch((prev) => ({ ...prev, lastName: event.target.value }))}
                     placeholder="Last name"
+                    style={inputStyle}
+                  />
+                  <input
+                    value={timelineSearch.firstName}
+                    onChange={(event) => setTimelineSearch((prev) => ({ ...prev, firstName: event.target.value }))}
+                    placeholder="First name"
                     style={inputStyle}
                   />
                   <input
@@ -7510,7 +7522,7 @@ Produce clean, structured data that can be directly imported into a spreadsheet 
   return (
     <div style={pageStyle}>
       <div style={wideShellStyle}>
-        <header style={headerStyle}>
+        <header style={homeHeaderStyle}>
           <h1 style={{ fontSize: "56px", margin: "10px 0 20px" }}>Census Notebook</h1>
           <div style={{ maxWidth: "900px", margin: "0 auto", color: "#4b5563", fontSize: "20px", lineHeight: 1.5 }}>
             <p>
