@@ -1,7 +1,7 @@
 {
   "name": "census-notebook",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "A local-first census research notebook for genealogy.",
   "author": "Old Dead Relatives",
   "type": "module",
