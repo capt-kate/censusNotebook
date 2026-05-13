@@ -7521,14 +7521,14 @@ export default function App() {
               <p>Simple options:</p>
               <ul>
                 <li>
-                  Mac: Preview can select text from an image if text recognition is available.
+                  Mac: <strong>Preview</strong> can select text from an image if text recognition is available.
                   Make sure <strong>System Settings</strong> &rarr; <strong>General</strong> &rarr;{" "}
                   <strong>Language &amp; Region</strong> &rarr; <strong>Live Text</strong> is enabled.
                 </li>
-                <li>Windows: Snipping Tool can extract text on newer versions.</li>
+                <li>Windows: <strong>Snipping Tool</strong> can extract text on newer versions.</li>
                 <li>
-                  AI tools such as ChatGPT or Google Gemini can transcribe an uploaded image. Upload
-                  the image, then use the{" "}
+                  AI tools, such as Google Gemini, ChatGPT, or Claude, can transcribe an uploaded
+                  image. Upload the image, then use the{" "}
                   <a
                     href="#/help/census-image-text"
                     onClick={(event) => {
