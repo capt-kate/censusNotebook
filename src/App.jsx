@@ -141,7 +141,7 @@ async function loadStoredData() {
 function loadCustomTemplates() {
   try {
     const raw = localStorage.getItem(CUSTOM_TEMPLATES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    return raw ? normalizeCustomTemplates(JSON.parse(raw)) : [];
   } catch {
     return [];
   }
@@ -296,6 +296,51 @@ function parseColumnLabels(text) {
     .filter(Boolean);
 }
 
+function normalizeCustomTemplates(templates) {
+  if (!Array.isArray(templates)) return [];
+
+  const usedIds = new Set(censusTemplates.map((template) => template.id));
+
+  return templates
+    .map((template) => {
+      const columnLabels = (Array.isArray(template?.columns) ? template.columns : [])
+        .map((column) => String(column?.label || column?.key || "").trim())
+        .filter(Boolean);
+      if (columnLabels.length === 0) return null;
+
+      const year = String(template?.year || extractYearFromText(template?.label) || "").trim();
+      const label = String(template?.label || (year ? `${year} Custom Census` : "Custom Census")).trim();
+      const existingKeys = new Set();
+      const columns = columnLabels.map((label) => ({
+        key: columnKeyFromLabel(label, existingKeys),
+        label,
+      }));
+      const baseId =
+        String(template?.id || "").trim() ||
+        `custom-${slugifyTemplateId(year || label)}` ||
+        `custom-template-${Date.now()}`;
+      let id = baseId;
+      let counter = 2;
+
+      while (usedIds.has(id)) {
+        id = `${baseId}-${counter}`;
+        counter += 1;
+      }
+
+      usedIds.add(id);
+
+      return {
+        id,
+        year,
+        label,
+        description: String(template?.description || "Custom census template."),
+        columns,
+        custom: true,
+      };
+    })
+    .filter(Boolean);
+}
+
 function sanitizeFilePart(value) {
   return String(value || "")
     .trim()
@@ -392,6 +437,13 @@ function toData(projects, activeProjectId = "") {
   return {
     activeProjectId: hasActiveProject ? activeProjectId : normalizedProjects[0]?.id || "",
     projects: normalizedProjects,
+  };
+}
+
+function makeBackupData(data, customTemplates) {
+  return {
+    ...data,
+    customTemplates: normalizeCustomTemplates(customTemplates),
   };
 }
 
@@ -3154,7 +3206,7 @@ export default function App() {
 
   function exportJson() {
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-    downloadFile(`census-notebook-backup-${timestamp}.json`, JSON.stringify(data, null, 2));
+    downloadFile(`census-notebook-backup-${timestamp}.json`, JSON.stringify(makeBackupData(data, customTemplates), null, 2));
   }
 
   function requireProCloudBackup() {
@@ -3179,7 +3231,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           licenseKey: license.licenseKey,
-          data,
+          data: makeBackupData(data, customTemplates),
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -3225,6 +3277,9 @@ export default function App() {
 
       const normalizedData = toData(payload.data.projects, payload.data.activeProjectId);
       setData(normalizedData);
+      if (Object.prototype.hasOwnProperty.call(payload.data, "customTemplates")) {
+        setCustomTemplates(normalizeCustomTemplates(payload.data.customTemplates));
+      }
       setDataStorageReady(true);
       await writeLocalDatabaseData(normalizedData);
       setCloudBackupMessage(`Cloud backup restored from ${backupDate}.`);
@@ -3435,6 +3490,9 @@ export default function App() {
 
         const normalizedData = toData(importedData.projects, importedData.activeProjectId);
         setData(normalizedData);
+        if (Object.prototype.hasOwnProperty.call(importedData, "customTemplates")) {
+          setCustomTemplates(normalizeCustomTemplates(importedData.customTemplates));
+        }
         setDataStorageReady(true);
         writeLocalDatabaseData(normalizedData).catch(() => {
           window.alert("The backup was opened, but Census Notebook could not save it locally.");
@@ -6643,7 +6701,8 @@ export default function App() {
               <p>
                 <strong>Note:</strong> Custom templates are stored in your current browser on your
                 current device. Opening Census Notebook in another browser, in incognito mode, or on
-                another device will not show your templates or records.
+                another device will not show your templates or records until you import a backup
+                that includes them.
               </p>
             </section>
 
